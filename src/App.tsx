@@ -232,9 +232,9 @@ const CHANGELOG: ChangelogEntry[] = [
     tag: 'patch',
     color: '#57F287',
     changes: [
-      'Fixed backup commands being incorrectly restricted to Owner only — they now correctly allow any Discord server owner with bot access',
+      'Fixed backup commands being incorrectly restricted to Owner only, they now correctly allow any Discord server owner with bot access',
       'Admins and Managers can now use save, load, backups, delbackup, autobackup, and verifybackup for servers they personally own',
-      'Added ownership guard to autobackup cancel — non-owners can only cancel schedules for their own servers',
+      'Added ownership guard to autobackup cancel so non-owners can only cancel schedules for their own servers',
     ],
   },
   {
@@ -357,7 +357,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     q: 'What happens if the bot goes offline mid-backup or mid-restore?',
-    a: 'The bot has a heartbeat and downtime detector. If it crashes mid-operation the backup or restore may be incomplete — you can re-run the command once the bot is back online. Use #$verifybackup to confirm a saved backup is intact before restoring.',
+    a: 'The bot has a heartbeat and downtime detector. If it crashes mid-operation the backup or restore may be incomplete, so you can re-run the command once the bot is back online. Use #$verifybackup to confirm a saved backup is intact before restoring.',
   },
 ];
 
