@@ -248,7 +248,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.1.1',
     date: 'Mar 6, 2026',
     tag: 'patch',
-    color: '#57F287',
+    color: 'var(--green)',
     changes: [
       'Fixed backup commands being incorrectly restricted to Owner only, they now correctly allow any Discord server owner with bot access',
       'Admins and Managers can now use save, load, backups, delbackup, autobackup, and verifybackup for servers they personally own',
@@ -282,7 +282,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.0.2',
     date: 'Mar 6, 2026',
     tag: 'patch',
-    color: '#57F287',
+    color: 'var(--green)',
     changes: [
       'Fixed a memory leak in the stat counter animations on the dashboard',
       'Uptime percentage now correctly handles incidents that cross window boundaries',
@@ -296,7 +296,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.0.1',
     date: 'Mar 1, 2026',
     tag: 'release',
-    color: '#57F287',
+    color: 'var(--green)',
     changes: [
       'Public release, bot opened to server owners',
       'Server owner self-service backups (20+ member requirement)',
@@ -1471,12 +1471,12 @@ export default function App() {
         name: 'Main Bot',
         status:
           online === null ? 'Checking...' : online ? 'Operational' : 'Offline',
-        color: online === null ? '#72767d' : online ? '#57F287' : '#ED4245',
+        color: online === null ? '#72767d' : online ? 'var(--green)' : '#ED4245',
         ping: pingMs !== null ? `${pingMs}ms` : null,
       },
-      { name: 'Helper Bots', status: 'Operational', color: '#57F287', ping: null },
-      { name: 'Backup Storage', status: 'Operational', color: '#57F287', ping: null },
-      { name: 'Uptime Monitor', status: 'Operational', color: '#57F287', ping: null },
+      { name: 'Helper Bots', status: 'Operational', color: 'var(--green)', ping: null },
+      { name: 'Backup Storage', status: 'Operational', color: 'var(--green)', ping: null },
+      { name: 'Uptime Monitor', status: 'Operational', color: 'var(--green)', ping: null },
     ],
     [online, pingMs]
   );
@@ -1507,6 +1507,7 @@ export default function App() {
           --border: ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)'};
           --border2: ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.14)'};
           --input-bg: ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'};
+          --green: ${darkMode ? 'var(--green)' : '#1a8a3c'};
         }
       `}</style>
 
@@ -1991,7 +1992,7 @@ export default function App() {
             >
               <PingDot
                 color={
-                  online === null ? '#72767d' : online ? '#57F287' : '#ED4245'
+                  online === null ? '#72767d' : online ? 'var(--green)' : '#ED4245'
                 }
                 size={10}
               />
@@ -2003,7 +2004,7 @@ export default function App() {
                       online === null
                         ? '#72767d'
                         : online
-                        ? '#57F287'
+                        ? 'var(--green)'
                         : '#ED4245',
                     fontFamily: 'monospace',
                     fontSize: 14,
@@ -2054,7 +2055,7 @@ export default function App() {
                         fontFamily: "'JetBrains Mono', monospace",
                         fontSize: 22,
                         fontWeight: 700,
-                        color: '#57F287',
+                        color: 'var(--green)',
                         lineHeight: 1,
                       }}
                     >
@@ -2189,7 +2190,7 @@ export default function App() {
                   const numPct = parseFloat(u.pct);
                   const pctColor =
                     numPct >= 99.9
-                      ? '#57F287'
+                      ? 'var(--green)'
                       : numPct >= 95
                       ? '#FEE75C'
                       : '#ED4245';
@@ -2327,7 +2328,7 @@ export default function App() {
                           <div
                             style={{
                               fontSize: 12,
-                              color: '#57F287',
+                              color: 'var(--green)',
                               fontFamily: 'monospace',
                             }}
                           >
@@ -2459,7 +2460,7 @@ export default function App() {
                                       style={{
                                         color: endsAfterDay
                                           ? '#72767d'
-                                          : '#57F287',
+                                          : 'var(--green)',
                                       }}
                                     >
                                       {endsAfterDay ? '→' : toStr}
