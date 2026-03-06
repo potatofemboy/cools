@@ -85,37 +85,37 @@ const COMMANDS: Record<string, CommandGroupData> = {
         name: 'save',
         args: '<server_id> [id2 ...]',
         desc: 'Back up one or more servers. Saves roles, channels, categories, emojis, stickers, bans, members, webhooks, automod rules, scheduled events, welcome screen, soundboard, and threads.',
-        perm: 'Server Owner',
+        perm: 'Owner',
       },
       {
         name: 'load',
         args: '<src_id> <tgt_id>',
         desc: 'Restore a backup onto a target server. If the source has multiple backups the bot lists them and waits for you to pick one.',
-        perm: 'Server Owner',
+        perm: 'Owner',
       },
       {
         name: 'backups',
         args: '<server_id>',
         desc: 'List all stored backups for a server, showing backup number, timestamp, and file size.',
-        perm: 'Server Owner',
+        perm: 'Owner',
       },
       {
         name: 'delbackup',
         args: '<server_id> <backup_number>',
         desc: 'Delete a specific backup. Use #$backups to see backup numbers (1 = oldest).',
-        perm: 'Server Owner',
+        perm: 'Owner',
       },
       {
         name: 'autobackup',
         args: '<server_id> <hours>',
         desc: 'Schedule automatic backups on a repeating interval. Also supports: autobackup list, autobackup cancel <server_id>.',
-        perm: 'Server Owner',
+        perm: 'Owner',
       },
       {
         name: 'verifybackup',
         args: '<server_id> [backup_number]',
         desc: 'Download and verify a backup can be fully decompressed and parsed. Reports role, channel, and member counts. Defaults to the most recent backup.',
-        perm: 'Server Owner',
+        perm: 'Owner',
       },
     ],
   },
@@ -227,6 +227,17 @@ const STATS: StatItem[] = [
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.1.1',
+    date: 'Mar 6, 2026',
+    tag: 'patch',
+    color: '#57F287',
+    changes: [
+      'Fixed backup commands being incorrectly restricted to Owner only — they now correctly allow any Discord server owner with bot access',
+      'Admins and Managers can now use save, load, backups, delbackup, autobackup, and verifybackup for servers they personally own',
+      'Added ownership guard to autobackup cancel — non-owners can only cancel schedules for their own servers',
+    ],
+  },
+  {
     version: 'v1.1.0',
     date: 'Mar 6, 2026',
     tag: 'dashboard',
@@ -285,7 +296,7 @@ const CHANGELOG: ChangelogEntry[] = [
       'Initial build: backup, restore, clone, and autobackup system',
       'Downtime detector with heartbeat pulse and clean shutdown tracking',
       '5 parallel helper bot instances for rate-limit bypass on restores',
-      'Manager role with elevated permissions above standard Admin (monitor, mass actions, etc.)',
+      'Manager role with save permissions above standard Admin',
       'Live server stats monitor and status cycling',
     ],
   },
@@ -294,7 +305,7 @@ const CHANGELOG: ChangelogEntry[] = [
 const FAQ: FaqEntry[] = [
   {
     q: 'Who can back up a server?',
-    a: 'Any user with bot access (Admin or above) who is the Discord owner of a server with 20+ members can run #$save. The bot enforces ownership — you can only back up servers you own. If your server is whitelisted by the bot owner, the member count requirement is waived.',
+    a: 'Server owners with 20 or more members can run #$save on their own server. Managers can also trigger saves. If your server is whitelisted by the bot owner, the member count requirement is waived.',
   },
   {
     q: 'My server has under 20 members, can I still get a backup?',
@@ -314,15 +325,39 @@ const FAQ: FaqEntry[] = [
   },
   {
     q: 'How are backups stored?',
-    a: 'Backups are compressed and stored securely on our servers. Multiple backups per server are kept, use #$delbackup to clean up old ones.',
+    a: 'Backups are compressed and stored securely on our servers. Multiple backups per server are kept, but are automatically deleted after 30 days. Use #$delbackup to clean up old ones manually.',
   },
   {
     q: "What's the difference between Manager and Admin?",
-    a: 'Manager is above Admin. Managers get everything Admins have plus monitor/unmonitor, leave, auditlog, and mass moderation. Admins can already use all backup commands (save, load, backups, delbackup, autobackup, verifybackup) — but only for Discord servers they personally own.',
+    a: 'Manager is above Admin. Managers have all Admin permissions plus the ability to trigger server backups. Admins handle access control and server info commands.',
   },
   {
     q: 'I got blocked, what do I do?',
     a: 'If your server or account has been blocked from using the backup system, join the support server at discord.gg/ynatEnRKWV and open a ticket.',
+  },
+  {
+    q: 'Does restoring a backup wipe my current server?',
+    a: 'Yes. The restore process deletes existing channels and roles before rebuilding from the backup. Make sure you want to fully overwrite the target server before running #$load.',
+  },
+  {
+    q: 'Does the bot save message history by default?',
+    a: 'No. Message history is opt-in. During the #$save flow the bot will ask whether you want to capture messages and which channels to include.',
+  },
+  {
+    q: 'How many backups can I store per server?',
+    a: 'There is no hard limit on the number of backups, but all backups are automatically deleted after 30 days. Use #$backups to see what you have and #$delbackup to clean up manually before then.',
+  },
+  {
+    q: 'Can I cancel or change my autobackup schedule?',
+    a: 'Yes. Use #$autobackup cancel <server_id> to remove a schedule, or run #$autobackup <server_id> <hours> again with a new interval to overwrite it. Schedules survive bot restarts.',
+  },
+  {
+    q: 'What are the helper bots?',
+    a: 'The bot runs 5 parallel helper bot instances alongside the main bot. During a restore, roles and channels are created across all instances simultaneously to work around Discord\'s rate limits and speed up large restores.',
+  },
+  {
+    q: 'What happens if the bot goes offline mid-backup or mid-restore?',
+    a: 'The bot has a heartbeat and downtime detector. If it crashes mid-operation the backup or restore may be incomplete — you can re-run the command once the bot is back online. Use #$verifybackup to confirm a saved backup is intact before restoring.',
   },
 ];
 
@@ -346,19 +381,19 @@ const PERMISSIONS = [
   {
     level: 'Manager',
     color: '#EB459E',
-    desc: 'All Admin permissions plus monitor/unmonitor, leave, auditlog, and mass moderation actions',
-    cmds: 'Admin + monitor + more',
+    desc: 'All Admin permissions plus the ability to trigger server backups',
+    cmds: 'Admin + save',
   },
   {
     level: 'Admin',
     color: '#FEE75C',
-    desc: 'Server info, restart, disconnect, view commands, and all backup commands (own servers only)',
-    cmds: '15+ commands',
+    desc: 'Access control, server info, whitelist/blocklist management',
+    cmds: '10+ commands',
   },
   {
     level: 'Server Owner',
     color: '#5865F2',
-    desc: 'Discord server owners can save, load, view, delete, and schedule backups for their own servers (20+ members to save)',
+    desc: 'Can back up and restore their own server only (20+ members to save)',
     cmds: 'Backup commands',
   },
 ];
@@ -418,7 +453,7 @@ const STORAGE_ITEMS = [
   {
     icon: '🗂️',
     label: 'Multiple backups',
-    value: 'Kept until you delete them',
+    value: 'Auto-deleted after 30 days',
   },
 ];
 
@@ -2699,7 +2734,7 @@ export default function App() {
               },
               {
                 title: '3. How Data Is Stored',
-                body: 'Backup data is compressed and stored securely on our servers. Backups persist until you delete them using the #$delbackup command. We do not share this data with any third parties.',
+                body: 'Backup data is compressed and stored securely on our servers. Backups are automatically deleted after 30 days, or sooner if you manually delete them using the #$delbackup command. We do not share this data with any third parties.',
               },
               {
                 title: '4. Who Can Access Your Data',
