@@ -895,7 +895,7 @@ function FaqItem({
           style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 13,
-            color: isOpen ? '#ffffff' : '#dcddde',
+            color: isOpen ? 'var(--t)' : 'var(--t)',
             fontWeight: isOpen ? 600 : 400,
           }}
         >
