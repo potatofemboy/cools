@@ -485,7 +485,6 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
   );
 }
 
-// Reusable pulsing dot -- was copy-pasted 5+ times before
 function PingDot({ color, size = 8 }: { color: string; size?: number }) {
   return (
     <span
@@ -520,7 +519,6 @@ function PingDot({ color, size = 8 }: { color: string; size?: number }) {
   );
 }
 
-// Fixed: cancelAnimationFrame cleanup prevents memory leak on unmount
 function useCountUp(target: number, duration = 1500, start = false): number {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -823,7 +821,6 @@ function CommandGroup({
   );
 }
 
-// Fixed: uses real scrollHeight instead of a hardcoded 300px cap
 function FaqItem({
   item,
   isOpen,
@@ -923,7 +920,6 @@ function FaqItem({
   );
 }
 
-// Fixed: properly clamps incident durations to the window boundaries
 function calcUptimePct(
   downtimeLog: DowntimeEntry[],
   totalDays: number
@@ -948,7 +944,6 @@ function calcUptimePct(
   );
 }
 
-// Build a CSS gradient for a single day bar reflecting exact incident timing within the day
 function getDayGradient(
   dayStartMs: number,
   dayEndMs: number,
@@ -1065,7 +1060,6 @@ export default function App() {
   const latestVersion = CHANGELOG[0]?.version ?? null;
   const hasNewChangelog = latestVersion && seenVersion !== latestVersion;
 
-  // Mark changelog as seen when tab is opened
   useEffect(() => {
     if (activeTab === 'changelog' && hasNewChangelog) {
       setSeenVersion(latestVersion!);
@@ -1073,7 +1067,6 @@ export default function App() {
     }
   }, [activeTab, hasNewChangelog, latestVersion]);
 
-  // Last synced relative time ticker
   const [, forceUpdate] = useState(0);
   useEffect(() => {
     const iv = setInterval(() => forceUpdate((n) => n + 1), 1_000);
@@ -1092,7 +1085,6 @@ export default function App() {
       ? `${syncAgo}s ago`
       : `${Math.floor(syncAgo / 60)}m ago`;
 
-  // Fixed: .catch() so clipboard errors don't silently swallow
   const copyCmd = (cmd: Cmd) => {
     const text = cmd.args ? `#$${cmd.name} ${cmd.args}` : `#$${cmd.name}`;
     navigator.clipboard
@@ -1103,7 +1095,6 @@ export default function App() {
         setTimeout(() => setCopiedCmd(null), 1800);
       })
       .catch(() => {
-        // clipboard permission denied or not on https -- nothing to do
       });
   };
 
@@ -1118,7 +1109,6 @@ export default function App() {
     return () => obs.disconnect();
   }, []);
 
-  // '/' key focuses search when on commands tab
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (
@@ -1134,7 +1124,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [activeTab]);
 
-  // Scroll-to-top button visibility
   useEffect(() => {
     const handler = () => setShowScrollTop(window.scrollY > 400);
     window.addEventListener('scroll', handler, { passive: true });
@@ -1150,7 +1139,6 @@ export default function App() {
     );
   };
 
-  // Meta tags for SEO and Discord link embeds
   useEffect(() => {
     document.title = 'Discord Backup Bot';
     const setMeta = (property: string, content: string, isName = false) => {
@@ -1180,7 +1168,6 @@ export default function App() {
     );
   }, []);
 
-  // Memoized since it only changes when online status changes
   const statusServices = useMemo(
     () => [
       {
@@ -1425,7 +1412,7 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px' }}>
-        {/* Stats -- Fixed: responsive grid instead of hardcoded repeat(5,1fr) */}
+        {/* Stats */}
         <div
           ref={statsRef}
           style={{
@@ -2373,7 +2360,7 @@ export default function App() {
           </div>
         )}
 
-        {/* FAQ -- Fixed: FaqItem uses real scrollHeight instead of capped 300px */}
+        {/* FAQ */}
         {activeTab === 'faq' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {FAQ.map((item, i) => (
