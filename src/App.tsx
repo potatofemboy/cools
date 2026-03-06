@@ -547,17 +547,34 @@ function StatCard({
   started,
 }: StatItem & { delay: number; started: boolean }) {
   const count = useCountUp(value, 1200 + delay * 100, started);
+  const isLarge = value >= 10000;
+  const [compact, setCompact] = useState(() => {
+    try { return localStorage.getItem('stat-compact') === 'true'; } catch { return false; }
+  });
+
+  const toggle = () => {
+    if (!isLarge) return;
+    const next = !compact;
+    setCompact(next);
+    try { localStorage.setItem('stat-compact', String(next)); } catch {}
+  };
+
+  const display = isLarge && compact
+    ? `${Math.floor(count / 1000)}K`
+    : count.toLocaleString();
+
   return (
     <div
       style={{
         background: 'rgba(255,255,255,0.03)',
         border: '1px solid rgba(88,101,242,0.3)',
         borderRadius: 12,
-        padding: '20px 24px',
+        padding: '20px 12px',
         textAlign: 'center',
         transition: 'border-color 0.3s',
-        cursor: 'default',
+        cursor: isLarge ? 'pointer' : 'default',
       }}
+      onClick={toggle}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.borderColor =
           'rgba(88,101,242,0.8)';
@@ -576,7 +593,7 @@ function StatCard({
           letterSpacing: -1,
         }}
       >
-        {count.toLocaleString()}
+        {display}
         {suffix}
       </div>
       <div
@@ -1413,7 +1430,7 @@ export default function App() {
           ref={statsRef}
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: 12,
             margin: '32px 0',
           }}
