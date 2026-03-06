@@ -49,6 +49,7 @@ interface LiveData {
   downtime_log: DowntimeEntry[];
   heartbeat: Heartbeat;
   maintenance: boolean;
+  ping_ms?: number;
 }
 
 interface StatItem {
@@ -227,6 +228,23 @@ const STATS: StatItem[] = [
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.1.2',
+    date: 'Mar 6, 2026',
+    tag: 'minor',
+    color: '#5865F2',
+    changes: [
+      'Added dark/light mode toggle, persisted across sessions',
+      'Added Try It tab with animated multi-turn command previews',
+      'Status page now shows live bot ping/latency next to Main Bot',
+      'FAQ tab now has a search bar that filters by question and answer',
+      'Save command now DMs the initiator a per-server summary on completion',
+      'Backups list now shows days remaining before each backup expires (⚠️ under 5 days)',
+      'Added daily background loop that DMs backup owners when a backup expires within 5 days',
+      'verifybackup now appends a live vs backup diff when the bot is still in the server',
+      'Rate limit message now shows a Discord countdown and auto-deletes when the cooldown expires',
+    ],
+  },
+  {
     version: 'v1.1.1',
     date: 'Mar 6, 2026',
     tag: 'patch',
@@ -366,6 +384,7 @@ const TABS = [
   { id: 'uptime', label: 'Status' },
   { id: 'changelog', label: 'Changelog' },
   { id: 'faq', label: 'FAQ' },
+  { id: 'tryit', label: 'Try It' },
   { id: 'architecture', label: 'How It Works' },
   { id: 'tos', label: 'Terms' },
   { id: 'privacy', label: 'Privacy' },
@@ -564,7 +583,7 @@ function StatCard({
   return (
     <div
       style={{
-        background: 'rgba(255,255,255,0.03)',
+        background: 'var(--surface2)',
         border: '1px solid rgba(88,101,242,0.3)',
         borderRadius: 12,
         padding: '20px 12px',
@@ -597,7 +616,7 @@ function StatCard({
       <div
         style={{
           fontSize: 12,
-          color: '#72767d',
+          color: 'var(--muted)',
           textTransform: 'uppercase',
           letterSpacing: 1.5,
           marginTop: 4,
@@ -637,7 +656,7 @@ function CommandGroup({
     <div
       style={{
         border: `1px solid ${
-          isOpen ? data.color + '55' : 'rgba(255,255,255,0.07)'
+          isOpen ? data.color + '55' : 'var(--border)'
         }`,
         borderRadius: 10,
         overflow: 'hidden',
@@ -653,18 +672,18 @@ function CommandGroup({
           padding: '14px 18px',
           cursor: 'pointer',
           userSelect: 'none',
-          background: isOpen ? `${data.color}18` : 'rgba(255,255,255,0.02)',
+          background: isOpen ? `${data.color}18` : 'var(--surface)',
           transition: 'background 0.2s',
         }}
         onMouseEnter={(e) => {
           if (!isOpen)
             (e.currentTarget as HTMLDivElement).style.background =
-              'rgba(255,255,255,0.05)';
+              'var(--surface2)';
         }}
         onMouseLeave={(e) => {
           if (!isOpen)
             (e.currentTarget as HTMLDivElement).style.background =
-              'rgba(255,255,255,0.02)';
+              'var(--surface)';
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -673,7 +692,7 @@ function CommandGroup({
             style={{
               fontFamily: "'JetBrains Mono', monospace",
               fontWeight: 600,
-              color: '#dcddde',
+              color: 'var(--t)',
               fontSize: 14,
             }}
           >
@@ -697,7 +716,7 @@ function CommandGroup({
         </div>
         <span
           style={{
-            color: '#72767d',
+            color: 'var(--muted)',
             fontSize: 12,
             display: 'inline-block',
             transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
@@ -731,7 +750,7 @@ function CommandGroup({
                   padding: '8px 18px',
                   borderBottom:
                     i < cmdsToShow.length - 1
-                      ? '1px solid rgba(255,255,255,0.04)'
+                      ? '1px solid var(--border)'
                       : 'none',
                   cursor: 'pointer',
                   transition: 'background 0.15s',
@@ -740,7 +759,7 @@ function CommandGroup({
                 onMouseEnter={(e) => {
                   if (!isCopied)
                     (e.currentTarget as HTMLDivElement).style.background =
-                      'rgba(255,255,255,0.04)';
+                      'var(--surface2)';
                 }}
                 onMouseLeave={(e) => {
                   if (!isCopied)
@@ -764,7 +783,7 @@ function CommandGroup({
                       style={{
                         fontFamily: "'JetBrains Mono', monospace",
                         fontSize: 11,
-                        color: '#72767d',
+                        color: 'var(--muted)',
                       }}
                     >
                       {' '}
@@ -775,7 +794,7 @@ function CommandGroup({
                 <div
                   style={{
                     fontSize: 12,
-                    color: '#b9bbbe',
+                    color: 'var(--muted)',
                     lineHeight: 1.6,
                     flex: 1,
                   }}
@@ -803,7 +822,7 @@ function CommandGroup({
                   style={{
                     fontSize: 10,
                     fontFamily: 'monospace',
-                    color: isCopied ? data.color : '#4f545c',
+                    color: isCopied ? data.color : 'var(--faint)',
                     marginLeft: 8,
                     flexShrink: 0,
                     alignSelf: 'center',
@@ -840,7 +859,7 @@ function FaqItem({
     <div
       style={{
         border: `1px solid ${
-          isOpen ? 'rgba(88,101,242,0.5)' : 'rgba(255,255,255,0.07)'
+          isOpen ? 'rgba(88,101,242,0.5)' : 'var(--border)'
         }`,
         borderRadius: 10,
         overflow: 'hidden',
@@ -858,18 +877,18 @@ function FaqItem({
           userSelect: 'none',
           background: isOpen
             ? 'rgba(88,101,242,0.08)'
-            : 'rgba(255,255,255,0.02)',
+            : 'var(--surface)',
           transition: 'background 0.2s',
         }}
         onMouseEnter={(e) => {
           if (!isOpen)
             (e.currentTarget as HTMLDivElement).style.background =
-              'rgba(255,255,255,0.04)';
+              'var(--surface2)';
         }}
         onMouseLeave={(e) => {
           if (!isOpen)
             (e.currentTarget as HTMLDivElement).style.background =
-              'rgba(255,255,255,0.02)';
+              'var(--surface)';
         }}
       >
         <span
@@ -884,7 +903,7 @@ function FaqItem({
         </span>
         <span
           style={{
-            color: '#72767d',
+            color: 'var(--muted)',
             fontSize: 12,
             display: 'inline-block',
             transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
@@ -908,9 +927,9 @@ function FaqItem({
           style={{
             padding: '12px 18px 16px',
             fontSize: 13,
-            color: '#b9bbbe',
+            color: 'var(--muted)',
             lineHeight: 1.7,
-            borderTop: '1px solid rgba(255,255,255,0.05)',
+            borderTop: '1px solid var(--border)',
           }}
         >
           {item.a}
@@ -1008,14 +1027,270 @@ function isBotOnline(heartbeat: Heartbeat): boolean | null {
   return Date.now() - new Date(heartbeat.last_seen).getTime() < 10 * 60 * 1000;
 }
 
+const TRY_IT_EXAMPLES = [
+  {
+    cmd: '#$save 8294710365820194',
+    desc: 'Back up a server',
+    conversation: [
+      { from: 'bot', lines: [
+        '📦 Configuring backup of **Neon Lounge**',
+        '',
+        '**Step 1/5 — Channel/category blacklist**',
+        'Enter comma-separated channel/category names to skip, or reply `skip` for none:',
+      ]},
+      { from: 'user', text: 'skip' },
+      { from: 'bot', lines: [
+        '**Step 2/5 — Save member data?**',
+        'Reply `yes` to save members or `no` to skip.',
+      ]},
+      { from: 'user', text: 'yes' },
+      { from: 'bot', lines: [
+        '**Step 3/5 — Member filter**',
+        'Reply `all`, `whitelist <ids>`, or `blacklist <ids>`.',
+      ]},
+      { from: 'user', text: 'all' },
+      { from: 'bot', lines: [
+        '**Step 4/5 — Backup format**',
+        'Reply `1`–`5` (default: 5 = lzma, smallest).',
+      ]},
+      { from: 'user', text: '5' },
+      { from: 'bot', lines: [
+        '**Step 5/5 — Message capture**',
+        'Reply `c <channel_id>` to capture a channel, or `done` to skip.',
+      ]},
+      { from: 'user', text: 'done' },
+      { from: 'bot', lines: [
+        '🚀 Starting backup of **Neon Lounge**…',
+        '',
+        '✅ Backup of **Neon Lounge** complete! **874.2 KB**',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$backups 8294710365820194',
+    desc: 'List backups',
+    conversation: [
+      { from: 'bot', lines: [
+        '📦 **3 backup(s)** for server `8294710365820194` (newest first)',
+        '',
+        '  **1.** `2026-03-06 14:03:55 UTC`  •  874.2 KB  •  28d left',
+        '  **2.** `2026-03-05 09:22:11 UTC`  •  871.0 KB  •  27d left',
+        '  **3.** `2026-03-04 11:51:48 UTC`  •  868.5 KB  •  26d left',
+        '',
+        'Use `#$delbackup 8294710365820194 <number>` to delete a specific backup.',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$verifybackup 8294710365820194',
+    desc: 'Verify a backup',
+    conversation: [
+      { from: 'bot', lines: [
+        '✅ **Backup #1 verified — no errors!**',
+        '',
+        '📅 Saved: `2026-03-06 14:03:55 UTC`',
+        '📦 Size: 874.2 KB',
+        '',
+        '🏠 **Neon Lounge** (ID: `8294710365820194`)',
+        '  👥 Members: **318**  •  Bans: **4**',
+        '  📋 Roles: **28**',
+        '  💬 Channels: **41**  •  Categories: **9**  •  Threads: **2**',
+        '  😀 Emojis: **18**  •  Stickers: **2**',
+        '  🪝 Webhooks: **1**',
+        '  📨 Captured messages: **0** across **0** channel(s)',
+        '',
+        '🔍 **Live vs Backup Diff**',
+        '  ✅ Members: **318** (unchanged)',
+        '  ✅ Roles: **28** (unchanged)',
+        '  🟡 Channels: **41** in backup vs **43** live (↑+2)',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$autobackup 8294710365820194 24',
+    desc: 'Schedule autobackups',
+    conversation: [
+      { from: 'bot', lines: [
+        '✅ Autobackup scheduled for **Neon Lounge** every **24h**.',
+        'First run: immediately.',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$info 8294710365820194',
+    desc: 'View server info',
+    conversation: [
+      { from: 'bot', lines: [
+        '🏠 **Neon Lounge** (`8294710365820194`)',
+        '👑 Owner: potato#0001 (`198765432100000001`)',
+        '👥 Members: 318',
+        '📋 Roles: 28',
+        '📂 Channels: 43',
+        '😀 Emojis: 18',
+        '🚀 Boost: Tier 1 (4 boosts)',
+        '🌐 Locale: en-US',
+        '🔒 Verification: medium',
+      ]},
+    ],
+  },
+];
+
+function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string, string> }) {
+  const [selected, setSelected] = useState(0);
+  const [step, setStep] = useState(-1);
+  const [typed, setTyped] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [visibleTurns, setVisibleTurns] = useState<number[]>([]);
+  const selectedRef = useRef(0);
+
+  const ex = TRY_IT_EXAMPLES[selected];
+  const convo = ex.conversation;
+  const TIME = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  useEffect(() => {
+    selectedRef.current = selected;
+    setStep(-1); setTyped(''); setTyping(false); setVisibleTurns([]);
+  }, [selected]);
+
+  const run = () => {
+    if (typing) return;
+    const snap = selected;
+    setStep(-1); setTyped(''); setVisibleTurns([]);
+    setTyping(true);
+    let i = 0;
+    const fullCmd = TRY_IT_EXAMPLES[snap].cmd;
+    const iv = setInterval(() => {
+      i++;
+      setTyped(fullCmd.slice(0, i));
+      if (i >= fullCmd.length) {
+        clearInterval(iv);
+        setTimeout(() => {
+          setTyping(false);
+          playFrom(0, snap);
+        }, 500);
+      }
+    }, 80);
+  };
+
+  const playFrom = (idx: number, snap: number) => {
+    const convo = TRY_IT_EXAMPLES[snap]?.conversation;
+    if (!convo || idx >= convo.length) { setStep(convo?.length ?? 0); return; }
+    if (selectedRef.current !== snap) return; // aborted — user switched
+    setStep(idx);
+    setVisibleTurns(prev => [...prev, idx]);
+    const turn = convo[idx];
+    const delay = turn.from === 'user' ? 700 : 1100;
+    setTimeout(() => playFrom(idx + 1, snap), delay);
+  };
+
+  const isRunning = typing || (step >= 0 && step < convo.length);
+  const isDone = step >= convo.length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 20 }}>
+        <h3 style={{ margin: '0 0 14px', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: theme.muted, fontFamily: 'monospace' }}>
+          Pick a command to preview
+        </h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {TRY_IT_EXAMPLES.map((e, i) => (
+            <button key={i} onClick={() => setSelected(i)} style={{
+              padding: '7px 14px', borderRadius: 7,
+              border: `1px solid ${i === selected ? '#5865F2' : theme.border}`,
+              background: i === selected ? 'rgba(88,101,242,0.15)' : theme.surface2,
+              color: i === selected ? '#5865F2' : theme.text,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}>
+              {e.desc}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: '#0d0f12', border: '1px solid rgba(88,101,242,0.25)', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ padding: '10px 16px', background: 'rgba(88,101,242,0.1)', borderBottom: '1px solid rgba(88,101,242,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#72767d' }}>Discord — #bot-commands</span>
+          <button onClick={run} style={{
+            padding: '5px 14px', borderRadius: 6, border: 'none',
+            background: isRunning ? 'rgba(88,101,242,0.3)' : '#5865F2',
+            color: '#fff', fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 11, cursor: isRunning ? 'default' : 'pointer',
+            fontWeight: 700, transition: 'background 0.2s',
+          }}>
+            {typing ? 'typing...' : isRunning ? 'running...' : isDone ? '▶ run again' : '▶ run'}
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', minHeight: 200, fontFamily: 'monospace', fontSize: 13, lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Initial user command */}
+          {typed.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#5865F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>🥔</div>
+              <div>
+                <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>potato</span>
+                <span style={{ color: '#72767d', fontSize: 11, marginLeft: 8 }}>{TIME}</span>
+                <div style={{ color: '#dcddde', marginTop: 2 }}>{typed}{typing && <span style={{ opacity: 0.6 }}>|</span>}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Conversation turns */}
+          {visibleTurns.map((idx) => {
+            const turn = convo[idx];
+            if (!turn) return null;
+            if (turn.from === 'bot') return (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, paddingLeft: 4, borderLeft: '3px solid #5865F2' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#5865F2,#EB459E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>💾</div>
+                <div>
+                  <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>Server Save/Load</span>
+                  <span style={{ background: '#5865F2', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 3, marginLeft: 6, fontWeight: 700 }}>APP</span>
+                  <span style={{ color: '#72767d', fontSize: 11, marginLeft: 8 }}>{TIME}</span>
+                  <div style={{ marginTop: 4 }}>
+                    {(turn as any).lines.map((line: string, i: number) => (
+                      <div key={i} style={{ color: line === '' ? undefined : '#dcddde', minHeight: line === '' ? 8 : undefined }}>
+                        {line.replace(/\*\*(.*?)\*\*/g, '$1').replace(/`(.*?)`/g, '$1')}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+            return (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#5865F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>🥔</div>
+                <div>
+                  <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>potato</span>
+                  <span style={{ color: '#72767d', fontSize: 11, marginLeft: 8 }}>{TIME}</span>
+                  <div style={{ color: '#dcddde', marginTop: 2 }}>{(turn as any).text}</div>
+                </div>
+              </div>
+            );
+          })}
+
+          {step === -1 && typed.length === 0 && (
+            <div style={{ color: '#4f545c', fontSize: 12, textAlign: 'center', paddingTop: 60 }}>
+              Press ▶ run to preview this command
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [statsStarted, setStatsStarted] = useState(false);
   const [activeTab, setActiveTab] = useState('commands');
   const [search, setSearch] = useState('');
+  const [faqSearch, setFaqSearch] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try { return localStorage.getItem('darkMode') !== 'false'; } catch { return true; }
+  });
   const [seenVersion, setSeenVersion] = useState<string>(
     () => localStorage.getItem('seenVersion') || ''
   );
@@ -1057,7 +1332,29 @@ export default function App() {
     ? isBotOnline(liveData.heartbeat)
     : null;
   const maintenance = liveData?.maintenance ?? false;
+  const pingMs = liveData?.ping_ms ?? null;
   const latestVersion = CHANGELOG[0]?.version ?? null;
+
+  const toggleDarkMode = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    try { localStorage.setItem('darkMode', String(next)); } catch {}
+  };
+
+  const theme = {
+    bg: darkMode ? '#0d0f12' : '#f2f3f5',
+    surface: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)',
+    surface2: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)',
+    border: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)',
+    border2: darkMode ? 'rgba(88,101,242,0.3)' : 'rgba(88,101,242,0.4)',
+    text: darkMode ? '#dcddde' : '#1a1b1e',
+    muted: darkMode ? '#72767d' : '#6d6f78',
+    headerBg: darkMode ? 'linear-gradient(180deg, #1a1d2e 0%, #0d0f12 100%)' : 'linear-gradient(180deg, #e8eaf6 0%, #f2f3f5 100%)',
+    headerBorder: darkMode ? 'rgba(88,101,242,0.2)' : 'rgba(88,101,242,0.3)',
+    inputBg: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+    tabActiveBg: darkMode ? '#5865F2' : '#5865F2',
+    tabBg: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)',
+  };
   const hasNewChangelog = latestVersion && seenVersion !== latestVersion;
 
   useEffect(() => {
@@ -1175,37 +1472,51 @@ export default function App() {
         status:
           online === null ? 'Checking...' : online ? 'Operational' : 'Offline',
         color: online === null ? '#72767d' : online ? '#57F287' : '#ED4245',
+        ping: pingMs !== null ? `${pingMs}ms` : null,
       },
-      { name: 'Helper Bots', status: 'Operational', color: '#57F287' },
-      { name: 'Backup Storage', status: 'Operational', color: '#57F287' },
-      { name: 'Uptime Monitor', status: 'Operational', color: '#57F287' },
+      { name: 'Helper Bots', status: 'Operational', color: '#57F287', ping: null },
+      { name: 'Backup Storage', status: 'Operational', color: '#57F287', ping: null },
+      { name: 'Uptime Monitor', status: 'Operational', color: '#57F287', ping: null },
     ],
-    [online]
+    [online, pingMs]
   );
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        background: '#0d0f12',
-        color: '#dcddde',
+        background: theme.bg,
+        color: theme.text,
         fontFamily: "'Segoe UI', system-ui, sans-serif",
         padding: '0 0 0',
+        transition: 'background 0.2s, color 0.2s',
       }}
     >
       <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
         rel="stylesheet"
       />
-      <style>{`@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }`}</style>
+      <style>{`
+        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+        :root {
+          --t: ${darkMode ? '#dcddde' : '#1a1b1e'};
+          --muted: ${darkMode ? '#72767d' : '#55575e'};
+          --faint: ${darkMode ? '#4f545c' : '#6b6e77'};
+          --surface: ${darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)'};
+          --surface2: ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'};
+          --border: ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)'};
+          --border2: ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.14)'};
+          --input-bg: ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'};
+        }
+      `}</style>
 
       <Toast message={toast.message} visible={toast.visible} />
 
       {/* Header */}
       <div
         style={{
-          background: 'linear-gradient(180deg, #1a1d2e 0%, #0d0f12 100%)',
-          borderBottom: '1px solid rgba(88,101,242,0.2)',
+          background: theme.headerBg,
+          borderBottom: `1px solid ${theme.headerBorder}`,
           padding: '40px 0 32px',
           textAlign: 'center',
           position: 'relative',
@@ -1225,7 +1536,8 @@ export default function App() {
               'radial-gradient(ellipse 80% 100% at 50% 0%, black, transparent)',
           }}
         />
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', textAlign: 'center' }}>
+          <div style={{ marginBottom: 16 }}>
           <div
             style={{
               display: 'inline-flex',
@@ -1246,7 +1558,6 @@ export default function App() {
               }`,
               borderRadius: 20,
               padding: '4px 12px',
-              marginBottom: 16,
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: 11,
               color:
@@ -1268,15 +1579,21 @@ export default function App() {
             )}{' '}
             &nbsp;·&nbsp; {latestVersion ?? 'v?'}
           </div>
+          </div>
           <h1
+            key={darkMode ? 'dark' : 'light'}
             style={{
               margin: 0,
               fontSize: 42,
               fontWeight: 800,
               fontFamily: "'JetBrains Mono', monospace",
-              background: 'linear-gradient(135deg, #ffffff 30%, #5865F2)',
+              background: darkMode
+                ? 'linear-gradient(135deg, #ffffff 30%, #5865F2)'
+                : 'linear-gradient(135deg, #1a1b1e 30%, #5865F2)',
               WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              color: 'transparent',
+              display: 'inline-block',
               letterSpacing: -2,
             }}
           >
@@ -1285,7 +1602,7 @@ export default function App() {
           <p
             style={{
               margin: '10px 0 0',
-              color: '#72767d',
+              color: 'var(--muted)',
               fontSize: 14,
               letterSpacing: 0.5,
             }}
@@ -1351,25 +1668,25 @@ export default function App() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 7,
-                background: 'rgba(255,255,255,0.05)',
-                color: '#dcddde',
+                background: 'var(--surface2)',
+                color: 'var(--t)',
                 borderRadius: 8,
                 padding: '10px 20px',
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 13,
                 fontWeight: 600,
                 textDecoration: 'none',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid var(--border2)',
                 letterSpacing: 0.3,
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLAnchorElement).style.background =
-                  'rgba(255,255,255,0.09)')
+                  'var(--surface2)')
               }
               onMouseLeave={(e) =>
                 ((e.currentTarget as HTMLAnchorElement).style.background =
-                  'rgba(255,255,255,0.05)')
+                  'var(--surface2)')
               }
             >
               Support Server
@@ -1390,7 +1707,7 @@ export default function App() {
               border: '1px solid rgba(254,231,92,0.25)',
               borderRadius: 20,
               fontSize: 11,
-              color: '#72767d',
+              color: 'var(--muted)',
               fontFamily: 'monospace',
               textDecoration: 'none',
               transition: 'background 0.2s',
@@ -1409,6 +1726,26 @@ export default function App() {
             the bot is full
           </a>
         </div>
+        {/* Dark mode toggle */}
+        <button
+          onClick={toggleDarkMode}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)',
+            border: `1px solid ${theme.border}`,
+            borderRadius: 8,
+            padding: '6px 12px',
+            cursor: 'pointer',
+            fontSize: 14,
+            color: theme.muted,
+            transition: 'background 0.2s',
+          }}
+          title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {darkMode ? '☀️' : '🌙'}
+        </button>
       </div>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px' }}>
@@ -1433,9 +1770,10 @@ export default function App() {
             display: 'flex',
             gap: 4,
             marginBottom: 20,
-            background: 'rgba(255,255,255,0.03)',
+            background: theme.tabBg,
             borderRadius: 8,
             padding: 4,
+            flexWrap: 'wrap',
           }}
         >
           {TABS.map((t) => (
@@ -1453,7 +1791,7 @@ export default function App() {
                 fontWeight: 600,
                 letterSpacing: 0.2,
                 background: activeTab === t.id ? '#5865F2' : 'transparent',
-                color: activeTab === t.id ? '#fff' : '#72767d',
+                color: activeTab === t.id ? '#fff' : theme.muted,
                 transition: 'all 0.2s',
                 position: 'relative',
               }}
@@ -1489,7 +1827,7 @@ export default function App() {
                   left: 14,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontSize: 14,
                 }}
               >
@@ -1503,10 +1841,10 @@ export default function App() {
                 style={{
                   width: '100%',
                   padding: '10px 14px 10px 38px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: theme.inputBg,
+                  border: `1px solid ${theme.border}`,
                   borderRadius: 8,
-                  color: '#dcddde',
+                  color: theme.text,
                   fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 13,
                   outline: 'none',
@@ -1517,7 +1855,7 @@ export default function App() {
                   e.target.style.borderColor = '#5865F2';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+                  e.target.style.borderColor = 'var(--border2)';
                 }}
               />
               {search && (
@@ -1530,7 +1868,7 @@ export default function App() {
                     transform: 'translateY(-50%)',
                     background: 'none',
                     border: 'none',
-                    color: '#72767d',
+                    color: 'var(--muted)',
                     cursor: 'pointer',
                     fontSize: 18,
                     padding: 0,
@@ -1583,7 +1921,7 @@ export default function App() {
                   style={{
                     textAlign: 'center',
                     padding: '40px 0',
-                    color: '#72767d',
+                    color: 'var(--muted)',
                     fontFamily: 'monospace',
                     fontSize: 13,
                   }}
@@ -1622,7 +1960,7 @@ export default function App() {
                   >
                     Scheduled Maintenance
                   </div>
-                  <div style={{ fontSize: 12, color: '#72767d', marginTop: 1 }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>
                     The bot may be temporarily unavailable. This is expected.
                   </div>
                 </div>
@@ -1677,11 +2015,11 @@ export default function App() {
                     ? 'All Systems Operational'
                     : 'Main Bot Offline'}
                 </div>
-                <div style={{ fontSize: 12, color: '#72767d', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
                   Online since Mar 1, 2026 · {DAYS_LIVE} day
                   {DAYS_LIVE !== 1 ? 's' : ''} running
                   {syncLabel && (
-                    <span style={{ marginLeft: 8, color: '#4f545c' }}>
+                    <span style={{ marginLeft: 8, color: 'var(--faint)' }}>
                       · synced {syncLabel}
                     </span>
                   )}
@@ -1725,7 +2063,7 @@ export default function App() {
                     <div
                       style={{
                         fontSize: 10,
-                        color: '#72767d',
+                        color: 'var(--muted)',
                         textTransform: 'uppercase',
                         letterSpacing: 1,
                         marginTop: 2,
@@ -1740,8 +2078,8 @@ export default function App() {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 10,
                 padding: 20,
               }}
@@ -1752,7 +2090,7 @@ export default function App() {
                   fontSize: 13,
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -1767,7 +2105,7 @@ export default function App() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '10px 14px',
-                      background: 'rgba(255,255,255,0.02)',
+                      background: 'var(--surface)',
                       borderRadius: 8,
                     }}
                   >
@@ -1775,24 +2113,31 @@ export default function App() {
                       style={{
                         fontFamily: 'monospace',
                         fontSize: 13,
-                        color: '#dcddde',
+                        color: 'var(--t)',
                       }}
                     >
                       {s.name}
                     </span>
                     <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10 }}
                     >
-                      <PingDot color={s.color} size={7} />
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: s.color,
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        {s.status}
-                      </span>
+                      {s.ping && (
+                        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                          {s.ping}
+                        </span>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <PingDot color={s.color} size={7} />
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: s.color,
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {s.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1801,8 +2146,8 @@ export default function App() {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 10,
                 padding: 20,
               }}
@@ -1813,7 +2158,7 @@ export default function App() {
                   fontSize: 13,
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -1854,7 +2199,7 @@ export default function App() {
                       style={{
                         textAlign: 'center',
                         padding: '14px 10px',
-                        background: 'rgba(255,255,255,0.02)',
+                        background: 'var(--surface)',
                         borderRadius: 8,
                         border: `1px solid ${pctColor}33`,
                       }}
@@ -1870,7 +2215,7 @@ export default function App() {
                         {u.pct}
                       </div>
                       <div
-                        style={{ fontSize: 11, color: '#72767d', marginTop: 4 }}
+                        style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}
                       >
                         {u.label}
                       </div>
@@ -1881,7 +2226,7 @@ export default function App() {
               <div
                 style={{
                   fontSize: 11,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   marginBottom: 6,
                   fontFamily: 'monospace',
                 }}
@@ -1971,7 +2316,7 @@ export default function App() {
                           style={{
                             fontFamily: 'monospace',
                             fontSize: 11,
-                            color: '#72767d',
+                            color: 'var(--muted)',
                             marginBottom: dayIncidents.length > 0 ? 6 : 0,
                           }}
                         >
@@ -2042,7 +2387,7 @@ export default function App() {
                                 style={{
                                   borderTop:
                                     j > 0
-                                      ? '1px solid rgba(255,255,255,0.06)'
+                                      ? '1px solid var(--border)'
                                       : 'none',
                                   paddingTop: j > 0 ? 6 : 0,
                                   marginTop: j > 0 ? 6 : 0,
@@ -2071,7 +2416,7 @@ export default function App() {
                                     style={{
                                       fontFamily: 'monospace',
                                       fontSize: 10,
-                                      color: '#4f545c',
+                                      color: 'var(--faint)',
                                     }}
                                   >
                                     {tzShort}
@@ -2093,7 +2438,7 @@ export default function App() {
                                     style={{
                                       fontFamily: 'monospace',
                                       fontSize: 11,
-                                      color: '#dcddde',
+                                      color: 'var(--t)',
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2106,7 +2451,7 @@ export default function App() {
                                     >
                                       {startsBeforeDay ? '←' : fromStr}
                                     </span>
-                                    <span style={{ color: '#4f545c' }}>
+                                    <span style={{ color: 'var(--faint)' }}>
                                       {' '}
                                       →{' '}
                                     </span>
@@ -2119,7 +2464,7 @@ export default function App() {
                                     >
                                       {endsAfterDay ? '→' : toStr}
                                     </span>
-                                    <span style={{ color: '#72767d' }}>
+                                    <span style={{ color: 'var(--muted)' }}>
                                       {' '}
                                       ({segDurStr} this day)
                                     </span>
@@ -2128,7 +2473,7 @@ export default function App() {
                                 <div
                                   style={{
                                     fontSize: 11,
-                                    color: '#72767d',
+                                    color: 'var(--muted)',
                                     lineHeight: 1.4,
                                   }}
                                 >
@@ -2149,7 +2494,7 @@ export default function App() {
                   justifyContent: 'space-between',
                   marginTop: 4,
                   fontSize: 10,
-                  color: '#4f545c',
+                  color: 'var(--faint)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -2162,8 +2507,8 @@ export default function App() {
             {downtimeLog.length > 0 && (
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
                   borderRadius: 10,
                   padding: 20,
                 }}
@@ -2174,7 +2519,7 @@ export default function App() {
                     fontSize: 13,
                     textTransform: 'uppercase',
                     letterSpacing: 1.5,
-                    color: '#72767d',
+                    color: 'var(--muted)',
                     fontFamily: 'monospace',
                   }}
                 >
@@ -2213,7 +2558,7 @@ export default function App() {
                         <span
                           style={{
                             fontSize: 11,
-                            color: '#4f545c',
+                            color: 'var(--faint)',
                             fontFamily: 'monospace',
                           }}
                         >
@@ -2226,7 +2571,7 @@ export default function App() {
                           })}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: '#72767d' }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                         {entry.reason}
                       </div>
                     </div>
@@ -2268,7 +2613,7 @@ export default function App() {
                 <div
                   style={{
                     flex: 1,
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'var(--surface)',
                     border: `1px solid ${entry.color}44`,
                     borderRadius: 10,
                     padding: '14px 18px',
@@ -2286,7 +2631,7 @@ export default function App() {
                       style={{
                         fontFamily: "'JetBrains Mono', monospace",
                         fontWeight: 700,
-                        color: '#dcddde',
+                        color: 'var(--t)',
                         fontSize: 14,
                       }}
                     >
@@ -2309,7 +2654,7 @@ export default function App() {
                       style={{
                         marginLeft: 'auto',
                         fontSize: 11,
-                        color: '#4f545c',
+                        color: 'var(--faint)',
                         fontFamily: 'monospace',
                       }}
                     >
@@ -2327,7 +2672,7 @@ export default function App() {
                           alignItems: 'flex-start',
                           gap: 8,
                           fontSize: 13,
-                          color: '#b9bbbe',
+                          color: 'var(--muted)',
                         }}
                       >
                         <span
@@ -2351,7 +2696,7 @@ export default function App() {
                 textAlign: 'center',
                 padding: '8px 0 0',
                 fontSize: 12,
-                color: '#4f545c',
+                color: 'var(--faint)',
                 fontFamily: 'monospace',
               }}
             >
@@ -2363,7 +2708,29 @@ export default function App() {
         {/* FAQ */}
         {activeTab === 'faq' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {FAQ.map((item, i) => (
+            <div style={{ position: 'relative', marginBottom: 4 }}>
+              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: theme.muted, fontSize: 14 }}>🔍</span>
+              <input
+                value={faqSearch}
+                onChange={(e) => { setFaqSearch(e.target.value); setOpenFaq(null); }}
+                placeholder="Search FAQ..."
+                style={{
+                  width: '100%',
+                  padding: '10px 14px 10px 38px',
+                  background: theme.inputBg,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 8,
+                  color: theme.text,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 13,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            {FAQ.filter(item =>
+              !faqSearch || item.q.toLowerCase().includes(faqSearch.toLowerCase()) || item.a.toLowerCase().includes(faqSearch.toLowerCase())
+            ).map((item, i) => (
               <FaqItem
                 key={i}
                 item={item}
@@ -2379,7 +2746,7 @@ export default function App() {
                 border: '1px solid rgba(88,101,242,0.2)',
                 borderRadius: 10,
                 fontSize: 13,
-                color: '#72767d',
+                color: 'var(--muted)',
               }}
             >
               Still have questions? Join the support server →&nbsp;
@@ -2399,13 +2766,16 @@ export default function App() {
           </div>
         )}
 
+        {/* TRY IT */}
+        {activeTab === 'tryit' && <TryItTab darkMode={darkMode} theme={theme} />}
+
         {/* HOW IT WORKS */}
         {activeTab === 'architecture' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 10,
                 padding: 20,
               }}
@@ -2416,7 +2786,7 @@ export default function App() {
                   fontSize: 13,
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -2448,11 +2818,11 @@ export default function App() {
                       {p.level}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: '#dcddde' }}>
+                      <div style={{ fontSize: 13, color: 'var(--t)' }}>
                         {p.desc}
                       </div>
                       <div
-                        style={{ fontSize: 11, color: '#72767d', marginTop: 2 }}
+                        style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}
                       >
                         {p.cmds}
                       </div>
@@ -2464,8 +2834,8 @@ export default function App() {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 10,
                 padding: 20,
               }}
@@ -2476,7 +2846,7 @@ export default function App() {
                   fontSize: 13,
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -2491,7 +2861,7 @@ export default function App() {
                       alignItems: 'flex-start',
                       gap: 12,
                       padding: '10px 14px',
-                      background: 'rgba(255,255,255,0.02)',
+                      background: 'var(--surface)',
                       borderRadius: 8,
                     }}
                   >
@@ -2502,7 +2872,7 @@ export default function App() {
                       <div
                         style={{
                           fontSize: 13,
-                          color: '#dcddde',
+                          color: 'var(--t)',
                           fontWeight: 500,
                         }}
                       >
@@ -2511,7 +2881,7 @@ export default function App() {
                       <div
                         style={{
                           fontSize: 12,
-                          color: '#72767d',
+                          color: 'var(--muted)',
                           marginTop: 2,
                           lineHeight: 1.5,
                         }}
@@ -2526,8 +2896,8 @@ export default function App() {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 10,
                 padding: 20,
               }}
@@ -2538,7 +2908,7 @@ export default function App() {
                   fontSize: 13,
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -2562,7 +2932,7 @@ export default function App() {
                       background: 'rgba(88,101,242,0.05)',
                       borderRadius: 6,
                       fontSize: 12,
-                      color: '#b9bbbe',
+                      color: 'var(--muted)',
                     }}
                   >
                     <span
@@ -2578,8 +2948,8 @@ export default function App() {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 10,
                 padding: 20,
               }}
@@ -2590,7 +2960,7 @@ export default function App() {
                   fontSize: 13,
                   textTransform: 'uppercase',
                   letterSpacing: 1.5,
-                  color: '#72767d',
+                  color: 'var(--muted)',
                   fontFamily: 'monospace',
                 }}
               >
@@ -2611,16 +2981,16 @@ export default function App() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '10px 14px',
-                      background: 'rgba(255,255,255,0.03)',
+                      background: 'var(--surface2)',
                       borderRadius: 8,
                     }}
                   >
                     <span style={{ fontSize: 18 }}>{item.icon}</span>
                     <div>
-                      <div style={{ fontSize: 11, color: '#72767d' }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
                         {item.label}
                       </div>
-                      <div style={{ fontSize: 13, color: '#dcddde' }}>
+                      <div style={{ fontSize: 13, color: 'var(--t)' }}>
                         {item.value}
                       </div>
                     </div>
@@ -2637,7 +3007,7 @@ export default function App() {
             <div
               style={{
                 fontSize: 12,
-                color: '#4f545c',
+                color: 'var(--faint)',
                 fontFamily: 'monospace',
                 marginBottom: 4,
               }}
@@ -2686,8 +3056,8 @@ export default function App() {
               <div
                 key={i}
                 style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
                   borderRadius: 10,
                   padding: '16px 20px',
                 }}
@@ -2697,14 +3067,14 @@ export default function App() {
                     fontFamily: "'JetBrains Mono', monospace",
                     fontWeight: 700,
                     fontSize: 13,
-                    color: '#dcddde',
+                    color: 'var(--t)',
                     marginBottom: 8,
                   }}
                 >
                   {section.title}
                 </div>
                 <div
-                  style={{ fontSize: 13, color: '#b9bbbe', lineHeight: 1.7 }}
+                  style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}
                 >
                   {section.body}
                 </div>
@@ -2719,7 +3089,7 @@ export default function App() {
             <div
               style={{
                 fontSize: 12,
-                color: '#4f545c',
+                color: 'var(--faint)',
                 fontFamily: 'monospace',
                 marginBottom: 4,
               }}
@@ -2768,8 +3138,8 @@ export default function App() {
               <div
                 key={i}
                 style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
                   borderRadius: 10,
                   padding: '16px 20px',
                 }}
@@ -2779,14 +3149,14 @@ export default function App() {
                     fontFamily: "'JetBrains Mono', monospace",
                     fontWeight: 700,
                     fontSize: 13,
-                    color: '#dcddde',
+                    color: 'var(--t)',
                     marginBottom: 8,
                   }}
                 >
                   {section.title}
                 </div>
                 <div
-                  style={{ fontSize: 13, color: '#b9bbbe', lineHeight: 1.7 }}
+                  style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}
                 >
                   {section.body}
                 </div>
@@ -2799,7 +3169,7 @@ export default function App() {
       {/* Footer */}
       <div
         style={{
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderTop: '1px solid var(--border)',
           marginTop: 60,
           padding: '28px 20px',
           textAlign: 'center',
@@ -2833,7 +3203,7 @@ export default function App() {
             target="_blank"
             rel="noreferrer"
             style={{
-              color: '#72767d',
+              color: 'var(--muted)',
               textDecoration: 'none',
               fontFamily: 'monospace',
               fontSize: 12,
@@ -2845,7 +3215,7 @@ export default function App() {
         <div
           style={{
             fontSize: 11,
-            color: '#4f545c',
+            color: 'var(--faint)',
             fontFamily: 'monospace',
           }}
         >
