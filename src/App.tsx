@@ -13,7 +13,7 @@ const UPTIME_START = new Date(2026, 1, 20);
 const DAYS_LIVE = Math.max(
   1,
   Math.ceil((Date.now() - LAUNCH_DATE.getTime()) / 86400000)
-);
+); 
 const DAYS_MONITORED = Math.max(
   1,
   Math.ceil((Date.now() - UPTIME_START.getTime()) / 86400000)
@@ -85,37 +85,37 @@ const COMMANDS: Record<string, CommandGroupData> = {
         name: 'save',
         args: '<server_id> [id2 ...]',
         desc: 'Back up one or more servers. Saves roles, channels, categories, emojis, stickers, bans, members, webhooks, automod rules, scheduled events, welcome screen, soundboard, and threads.',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
       {
         name: 'load',
         args: '<src_id> <tgt_id>',
         desc: 'Restore a backup onto a target server. If the source has multiple backups the bot lists them and waits for you to pick one.',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
       {
         name: 'backups',
         args: '<server_id>',
         desc: 'List all stored backups for a server, showing backup number, timestamp, and file size.',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
       {
         name: 'delbackup',
         args: '<server_id> <backup_number>',
         desc: 'Delete a specific backup. Use #$backups to see backup numbers (1 = oldest).',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
       {
         name: 'autobackup',
         args: '<server_id> <hours>',
         desc: 'Schedule automatic backups on a repeating interval. Also supports: autobackup list, autobackup cancel <server_id>.',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
       {
         name: 'verifybackup',
         args: '<server_id> [backup_number]',
         desc: 'Download and verify a backup can be fully decompressed and parsed. Reports role, channel, and member counts. Defaults to the most recent backup.',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
     ],
   },
@@ -285,7 +285,7 @@ const CHANGELOG: ChangelogEntry[] = [
       'Initial build: backup, restore, clone, and autobackup system',
       'Downtime detector with heartbeat pulse and clean shutdown tracking',
       '5 parallel helper bot instances for rate-limit bypass on restores',
-      'Manager role with save permissions above standard Admin',
+      'Manager role with elevated permissions above standard Admin (monitor, mass actions, etc.)',
       'Live server stats monitor and status cycling',
     ],
   },
@@ -294,7 +294,7 @@ const CHANGELOG: ChangelogEntry[] = [
 const FAQ: FaqEntry[] = [
   {
     q: 'Who can back up a server?',
-    a: 'Server owners with 20 or more members can run #$save on their own server. Managers can also trigger saves. If your server is whitelisted by the bot owner, the member count requirement is waived.',
+    a: 'Any user with bot access (Admin or above) who is the Discord owner of a server with 20+ members can run #$save. The bot enforces ownership — you can only back up servers you own. If your server is whitelisted by the bot owner, the member count requirement is waived.',
   },
   {
     q: 'My server has under 20 members, can I still get a backup?',
@@ -318,7 +318,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     q: "What's the difference between Manager and Admin?",
-    a: 'Manager is above Admin. Managers have all Admin permissions plus the ability to trigger server backups. Admins handle access control and server info commands.',
+    a: 'Manager is above Admin. Managers get everything Admins have plus monitor/unmonitor, leave, auditlog, and mass moderation. Admins can already use all backup commands (save, load, backups, delbackup, autobackup, verifybackup) — but only for Discord servers they personally own.',
   },
   {
     q: 'I got blocked, what do I do?',
@@ -346,19 +346,19 @@ const PERMISSIONS = [
   {
     level: 'Manager',
     color: '#EB459E',
-    desc: 'All Admin permissions plus the ability to trigger server backups',
-    cmds: 'Admin + save',
+    desc: 'All Admin permissions plus monitor/unmonitor, leave, auditlog, and mass moderation actions',
+    cmds: 'Admin + monitor + more',
   },
   {
     level: 'Admin',
     color: '#FEE75C',
-    desc: 'Access control, server info, whitelist/blocklist management',
-    cmds: '10+ commands',
+    desc: 'Server info, restart, disconnect, view commands, and all backup commands (own servers only)',
+    cmds: '15+ commands',
   },
   {
     level: 'Server Owner',
     color: '#5865F2',
-    desc: 'Can back up and restore their own server only (20+ members to save)',
+    desc: 'Discord server owners can save, load, view, delete, and schedule backups for their own servers (20+ members to save)',
     cmds: 'Backup commands',
   },
 ];
