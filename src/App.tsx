@@ -2279,8 +2279,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             <input
               type="text"
               value={linkCodeInput}
-              placeholder="6-digit code"
-              maxLength={6}
+              placeholder="8-digit code"
+              maxLength={8}
               onChange={e => { setLinkCodeInput(e.target.value.replace(/\D/g, '')); setLinkError(''); }}
               onKeyDown={e => { if (e.key === 'Enter') attemptVerifyCode(); }}
               style={{
