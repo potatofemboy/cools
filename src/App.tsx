@@ -1863,6 +1863,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: theme.surface }}>
                             <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0, minWidth: 160 }}>{b.timestamp_str}</span>
                             <code style={{ color: theme.muted, fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.thread_name}</code>
+                            {i === 0 && <span style={{ fontSize: 10, color: 'var(--green)', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>latest</span>}
                             <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
                               {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '--'}
                             </span>
@@ -1874,7 +1875,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                               onClick={e => { e.stopPropagation(); copyId(`#$delbackup ${sid} ${entries.length - i}`); }}
                               title="Copy delete command"
                               style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(237,66,69,0.3)`, background: 'rgba(237,66,69,0.08)', color: '#ED4245', fontSize: 10, cursor: 'pointer', flexShrink: 0 }}
-                            >{copiedId === `#$delbackup ${sid} ${entries.length - i}` ? '✓ copied' : '🗑 delete'}</button>
+                            >{copiedId === `#$delbackup ${sid} ${entries.length - i}` ? '✓ copied' : '📋 copy del cmd'}</button>
                           </div>
                         ))}
                       </div>
@@ -2172,15 +2173,19 @@ export default function App() {
         headers: { 'Accept': 'application/vnd.github+json' },
         cache: 'no-store',
       });
+      if (res.status === 403 || res.status === 429) {
+        // Rate limited — keep existing data, just update the timestamp
+        setLastSynced(Date.now());
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const envelope = await res.json();
-      // GitHub API returns content as base64-encoded string
       const decoded = atob(envelope.content.replace(/\n/g, ''));
       const json = JSON.parse(decoded);
       setLiveData(json);
       setLastSynced(Date.now());
     } catch {
-      /* fall back to static */
+      // Network error etc — preserve existing data, don't wipe it
     }
   }, []);
 
@@ -2206,27 +2211,10 @@ export default function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchOnce() {
-      try {
-        const res = await fetch(DATA_URL + '?t=' + Date.now());
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        if (!cancelled) {
-          setLiveData(json);
-          setLastSynced(Date.now());
-        }
-      } catch {
-        /* fall back to static */
-      }
-    }
-    fetchOnce();
-    const iv = setInterval(fetchOnce, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(iv);
-    };
-  }, []);
+    fetchData();
+    const iv = setInterval(fetchData, 60_000);
+    return () => clearInterval(iv);
+  }, [fetchData]);
 
   const downtimeLog: DowntimeEntry[] = liveData?.downtime_log ?? [];
   const online: boolean | null = liveData
