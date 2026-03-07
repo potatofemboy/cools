@@ -45,11 +45,53 @@ interface Heartbeat {
   last_seen: string;
 }
 
+interface BackupEntry {
+  thread_name: string;
+  timestamp_str: string;
+  timestamp_iso: string | null;
+  size_kb: number | null;
+  encrypted: boolean;
+}
+
+interface GuildInfo {
+  id: string;
+  name: string;
+  member_count: number;
+  owner_id: string;
+  channel_count: number;
+  role_count: number;
+  boost_level: number;
+  boost_count: number;
+  icon_url: string | null;
+  created_at: string;
+  description: string;
+}
+
+interface UserInfo {
+  id: string;
+  name: string;
+  display_name: string;
+  avatar_url: string | null;
+}
+
 interface LiveData {
   downtime_log: DowntimeEntry[];
   heartbeat: Heartbeat;
   maintenance: boolean;
   ping_ms?: number;
+  // real access-control & backup registry fields from data.json
+  admins?: string[];
+  managers?: string[];
+  backup_owners?: Record<string, string>;
+  backup_shared_access?: Record<string, string[]>;
+  backup_whitelist_guilds?: string[];
+  backup_whitelist_users?: string[];
+  backup_blocked_guilds?: string[];
+  backup_blocked_users?: string[];
+  // live snapshots written by _dashboard_sync_loop
+  guild_snapshot?: Record<string, GuildInfo>;
+  user_cache?: Record<string, UserInfo>;
+  backup_inventory?: Record<string, BackupEntry[]>; // server_id -> list of backups
 }
 
 interface StatItem {
@@ -228,6 +270,19 @@ const STATS: StatItem[] = [
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.1.3',
+    date: 'Mar 6, 2026',
+    tag: 'minor',
+    color: '#EB459E',
+    changes: [
+      'Added #$diff — compare any two backups side by side with a color-coded change report',
+      'Added optional AES-256 encryption on save (#$save → Step 5/6), use --password flag on load/verify to decrypt',
+      'Added #$sharebackup / #$unsharebackup — grant or revoke backup access to other users per server',
+      'Added #$sharedwith — list all users who have shared access to a server\'s backups',
+      'Added password-protected admin panel tab',
+    ],
+  },
+  {
     version: 'v1.1.2',
     date: 'Mar 6, 2026',
     tag: 'minor',
@@ -388,6 +443,7 @@ const TABS = [
   { id: 'architecture', label: 'How It Works' },
   { id: 'tos', label: 'Terms' },
   { id: 'privacy', label: 'Privacy' },
+  { id: 'admin', label: '⚙️ Admin' },
 ];
 
 const PERMISSIONS = [
@@ -1135,6 +1191,523 @@ const TRY_IT_EXAMPLES = [
   },
 ];
 
+// ─── Admin Panel ────────────────────────────────────────────────────────────
+
+const ADMIN_PASSWORD = "ADMIN#BACKUP.1234@PASSWORD";
+
+type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs';
+
+function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null }) {
+  const [authed, setAuthed] = useState(false);
+  const [pw, setPw] = useState('');
+  const [pwError, setPwError] = useState(false);
+  const [view, setView] = useState<AdminView>('dashboard');
+  const [selectedServer, setSelectedServer] = useState<string | null>(null);
+  const [serverSort, setServerSort] = useState<'members_desc' | 'members_asc' | 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'backed_up'>('members_desc');
+
+  const ADMIN_VIEWS: { id: AdminView; label: string; icon: string }[] = [
+    { id: 'dashboard', label: 'Dashboard',    icon: '📊' },
+    { id: 'servers',   label: 'Servers',      icon: '🌐' },
+    { id: 'backups',   label: 'Backups',      icon: '💾' },
+    { id: 'access',    label: 'Access Control', icon: '🔐' },
+    { id: 'logs',      label: 'Logs',         icon: '📋' },
+  ];
+
+  // ── Real data from liveData (data.json) ──────────────────────────────────
+  const realAdmins:    string[]                    = (liveData?.admins   ?? []).map(String);
+  const realManagers:  string[]                    = (liveData?.managers ?? []).map(String);
+  const backupOwners:  Record<string,string>       = liveData?.backup_owners           ?? {};
+  const sharedAccess:  Record<string,string[]>     = liveData?.backup_shared_access    ?? {};
+  const wlGuilds:      string[]                    = liveData?.backup_whitelist_guilds ?? [];
+  const wlUsers:       string[]                    = liveData?.backup_whitelist_users  ?? [];
+  const blGuilds:      string[]                    = liveData?.backup_blocked_guilds   ?? [];
+  const blUsers:       string[]                    = liveData?.backup_blocked_users    ?? [];
+  const downtimeEvents                             = liveData?.downtime_log            ?? [];
+  const guildSnap:     Record<string,GuildInfo>    = liveData?.guild_snapshot          ?? {};
+  const userCache:     Record<string,UserInfo>     = liveData?.user_cache              ?? {};
+  const backupInv:     Record<string,BackupEntry[]> = liveData?.backup_inventory       ?? {};
+
+  // Helper: resolve a user ID to a display string
+  const resolveUser = (id: string) => {
+    const u = userCache[id];
+    if (!u) return { label: id, sub: null, avatar: null };
+    return {
+      label: u.display_name || u.name,
+      sub:   u.name !== u.display_name ? u.name : null,
+      avatar: u.avatar_url,
+    };
+  };
+
+  // All guilds the bot is in (live snapshot)
+  const allGuilds = Object.values(guildSnap);
+  // Servers with backups — sourced from forum scan (backup_inventory), not backup_owners
+  const backupServerIds = Object.keys(backupInv);
+
+  // Access list: owner row + managers + admins
+  const OWNER_ID_STR = '1425423027335598090';
+  const accessList = [
+    { id: OWNER_ID_STR, role: 'Owner' as const },
+    ...realManagers.filter(id => id !== OWNER_ID_STR).map(id => ({ id, role: 'Manager' as const })),
+    ...realAdmins.filter(id => id !== OWNER_ID_STR).map(id => ({ id, role: 'Admin' as const })),
+  ];
+
+  const card = (content: JSX.Element, style?: React.CSSProperties) => (
+    <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 20, ...style }}>
+      {content}
+    </div>
+  );
+
+  const statBox = (label: string, value: string | number, icon: string, color = '#5865F2') => (
+    <div style={{ background: theme.surface2, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '14px 18px', flex: 1, minWidth: 120 }}>
+      <div style={{ fontSize: 22 }}>{icon}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, color, fontFamily: 'monospace', marginTop: 6 }}>{value}</div>
+      <div style={{ fontSize: 11, color: theme.muted, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+
+  if (!authed) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 20 }}>
+      <div style={{ fontSize: 40 }}>🔐</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: theme.text }}>Admin Access</div>
+      <div style={{ fontSize: 13, color: theme.muted }}>Enter the admin password to continue</div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <input
+          type="password"
+          value={pw}
+          placeholder="Password"
+          onChange={e => { setPw(e.target.value); setPwError(false); }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwError(false); }
+              else { setPwError(true); setPw(''); }
+            }
+          }}
+          style={{
+            padding: '9px 14px', borderRadius: 8, border: `1px solid ${pwError ? '#ED4245' : theme.border2}`,
+            background: 'var(--input-bg)', color: theme.text, fontFamily: 'monospace',
+            fontSize: 14, outline: 'none', width: 200,
+          }}
+        />
+        <button
+          onClick={() => {
+            if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwError(false); }
+            else { setPwError(true); setPw(''); }
+          }}
+          style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+        >
+          Unlock
+        </button>
+      </div>
+      {pwError && <div style={{ color: '#ED4245', fontSize: 12 }}>❌ Incorrect password</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', gap: 16 }}>
+      {/* Sidebar */}
+      <div style={{ width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {ADMIN_VIEWS.map(v => (
+          <button key={v.id} onClick={() => setView(v.id)} style={{
+            padding: '9px 14px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer',
+            background: view === v.id ? 'rgba(88,101,242,0.15)' : 'transparent',
+            color: view === v.id ? '#5865F2' : theme.text,
+            fontWeight: view === v.id ? 700 : 400, fontSize: 13,
+            transition: 'background 0.15s',
+          }}>
+            {v.icon} {v.label}
+          </button>
+        ))}
+        <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button
+            onClick={onRefresh}
+            disabled={refreshing}
+            style={{
+              padding: '8px 14px', borderRadius: 8, border: 'none', width: '100%',
+              background: refreshing ? 'rgba(88,101,242,0.15)' : '#5865F2',
+              color: refreshing ? '#5865F2' : '#fff',
+              fontSize: 12, cursor: refreshing ? 'not-allowed' : 'pointer',
+              fontWeight: 700, transition: 'background 0.2s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>↻</span>
+            {refreshing ? 'Refreshing...' : 'Refresh Data'}
+          </button>
+          {lastSynced && (
+            <div style={{ fontSize: 10, color: theme.muted, textAlign: 'center', fontFamily: 'monospace' }}>
+              synced {new Date(lastSynced).toLocaleTimeString()}
+            </div>
+          )}
+          <button onClick={() => setAuthed(false)} style={{
+            padding: '8px 14px', borderRadius: 8, border: `1px solid ${theme.border}`, width: '100%',
+            background: 'transparent', color: theme.muted, fontSize: 12, cursor: 'pointer',
+          }}>
+            🔒 Lock
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {view === 'dashboard' && <>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {statBox('Bot In', allGuilds.length, '🌐')}
+            {statBox('Backups', Object.values(backupInv).reduce((n, arr) => n + arr.length, 0), '💾', '#57F287')}
+            {statBox('Servers Backed Up', backupServerIds.length, '🗄️', '#57F287')}
+            {statBox('Managers', realManagers.length, '🔷', '#5865F2')}
+            {statBox('Admins', realAdmins.length, '👤', '#EB459E')}
+            {statBox('Blocked', blGuilds.length + blUsers.length, '🚫', '#ED4245')}
+          </div>
+
+          {/* Live guild overview */}
+          {allGuilds.length > 0 && card(<>
+            <div style={{ fontWeight: 700, marginBottom: 12, color: theme.text }}>🌐 Guild Overview</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[...allGuilds].sort((a,b) => b.member_count - a.member_count).slice(0,6).map(g => {
+                const hasBackup = !!backupOwners[g.id];
+                return (
+                  <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
+                    {g.icon_url
+                      ? <img src={g.icon_url} style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
+                      : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(88,101,242,0.2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>?</div>
+                    }
+                    <span style={{ fontWeight: 700, color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
+                    <span style={{ color: theme.muted }}>👥 {g.member_count.toLocaleString()}</span>
+                    <span style={{ color: theme.muted }}>💬 {g.channel_count}</span>
+                    {g.boost_level > 0 && <span style={{ color: '#EB459E' }}>✨ L{g.boost_level}</span>}
+                    <span style={{ color: hasBackup ? 'var(--green)' : theme.muted, fontSize: 10, padding: '1px 5px', borderRadius: 4, background: hasBackup ? 'rgba(87,242,135,0.1)' : 'transparent', border: `1px solid ${hasBackup ? 'rgba(87,242,135,0.3)' : 'transparent'}` }}>
+                      {hasBackup ? '💾 backed up' : 'no backup'}
+                    </span>
+                  </div>
+                );
+              })}
+              {allGuilds.length > 6 && <div style={{ fontSize: 11, color: theme.muted, paddingTop: 4 }}>+{allGuilds.length - 6} more — see Servers tab</div>}
+            </div>
+          </>)}
+
+          {/* Whitelist / Blocklist */}
+          {(wlGuilds.length > 0 || wlUsers.length > 0 || blGuilds.length > 0 || blUsers.length > 0) && card(<>
+            <div style={{ fontWeight: 700, marginBottom: 10, color: theme.text }}>🛡️ Whitelist / Blocklist</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {wlGuilds.map(id => {
+                const g = guildSnap[id];
+                return <div key={id} style={{ background: 'rgba(87,242,135,0.08)', border: '1px solid rgba(87,242,135,0.25)', borderRadius: 7, padding: '6px 12px', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--green)', fontWeight: 700 }}>✅ WL Guild</span>
+                  <span style={{ color: theme.text }}>{g?.name ?? id}</span>
+                  <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code>
+                </div>;
+              })}
+              {wlUsers.map(id => {
+                const u = resolveUser(id);
+                return <div key={id} style={{ background: 'rgba(87,242,135,0.08)', border: '1px solid rgba(87,242,135,0.25)', borderRadius: 7, padding: '6px 12px', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--green)', fontWeight: 700 }}>✅ WL User</span>
+                  <span style={{ color: theme.text }}>{u.label}</span>
+                  <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code>
+                </div>;
+              })}
+              {blGuilds.map(id => {
+                const g = guildSnap[id];
+                return <div key={id} style={{ background: 'rgba(237,66,69,0.08)', border: '1px solid rgba(237,66,69,0.25)', borderRadius: 7, padding: '6px 12px', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ color: '#ED4245', fontWeight: 700 }}>🚫 Blocked Guild</span>
+                  <span style={{ color: theme.text }}>{g?.name ?? id}</span>
+                  <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code>
+                </div>;
+              })}
+              {blUsers.map(id => {
+                const u = resolveUser(id);
+                return <div key={id} style={{ background: 'rgba(237,66,69,0.08)', border: '1px solid rgba(237,66,69,0.25)', borderRadius: 7, padding: '6px 12px', fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ color: '#ED4245', fontWeight: 700 }}>🚫 Blocked User</span>
+                  <span style={{ color: theme.text }}>{u.label}</span>
+                  <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code>
+                </div>;
+              })}
+            </div>
+          </>)}
+
+          {/* Recent downtime */}
+          {downtimeEvents.length > 0 && card(<>
+            <div style={{ fontWeight: 700, marginBottom: 12, color: theme.text }}>📉 Recent Downtime</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {[...downtimeEvents].reverse().slice(0,4).map((d,i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, fontSize: 12, padding: '6px 0', borderBottom: i < 3 ? `1px solid ${theme.border}` : 'none', alignItems: 'center' }}>
+                  <span style={{ color: theme.muted, fontFamily: 'monospace', flexShrink: 0, fontSize: 11 }}>{d.server_went_down_approx}</span>
+                  <span style={{ color: '#ED4245', flex: 1 }}>{d.reason}</span>
+                  <span style={{ color: theme.muted }}>{d.duration_human}</span>
+                  <span style={{ color: d.bot_came_back_up ? 'var(--green)' : '#FEE75C', flexShrink: 0 }}>
+                    {d.bot_came_back_up ? '✅' : '⚠️ ongoing'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>)}
+        </>}
+
+        {view === 'servers' && <>
+          {card(<>
+            {/* Header + sort controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 700, color: theme.text, flex: 1 }}>🌐 All Servers ({allGuilds.length})</div>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {([
+                  { id: 'members_desc', label: '👥 Most' },
+                  { id: 'members_asc',  label: '👥 Least' },
+                  { id: 'created_desc', label: '🕐 Newest' },
+                  { id: 'created_asc',  label: '🕐 Oldest' },
+                  { id: 'name_asc',     label: 'A→Z' },
+                  { id: 'name_desc',    label: 'Z→A' },
+                  { id: 'backed_up',    label: '💾 Backed Up' },
+                ] as { id: typeof serverSort; label: string }[]).map(opt => (
+                  <button key={opt.id} onClick={() => setServerSort(opt.id)} style={{
+                    padding: '4px 9px', borderRadius: 6, border: `1px solid ${serverSort === opt.id ? '#5865F2' : theme.border}`,
+                    background: serverSort === opt.id ? 'rgba(88,101,242,0.15)' : 'transparent',
+                    color: serverSort === opt.id ? '#5865F2' : theme.muted,
+                    fontSize: 11, cursor: 'pointer', fontWeight: serverSort === opt.id ? 700 : 400,
+                    transition: 'all 0.15s',
+                  }}>{opt.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {allGuilds.length === 0 && <div style={{ color: theme.muted, fontSize: 13 }}>No live guild data yet — hit Refresh or check back after bot restart.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[...allGuilds].sort((a, b) => {
+                if (serverSort === 'members_desc') return b.member_count - a.member_count;
+                if (serverSort === 'members_asc')  return a.member_count - b.member_count;
+                if (serverSort === 'created_desc') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                if (serverSort === 'created_asc')  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                if (serverSort === 'name_asc')     return a.name.localeCompare(b.name);
+                if (serverSort === 'name_desc')    return b.name.localeCompare(a.name);
+                if (serverSort === 'backed_up')    return (backupOwners[b.id] ? 1 : 0) - (backupOwners[a.id] ? 1 : 0);
+                return 0;
+              }).map(g => {
+                const isOpen = selectedServer === g.id;
+                const hasBackup = !!backupOwners[g.id];
+                const ownerInfo = resolveUser(g.owner_id);
+                const shared = sharedAccess[g.id] ?? [];
+                const isBlocked = blGuilds.includes(g.id);
+                const isWL = wlGuilds.includes(g.id);
+                return (
+                  <div key={g.id} onClick={() => setSelectedServer(isOpen ? null : g.id)}
+                    style={{ background: theme.surface2, border: `1px solid ${isOpen ? '#5865F2' : theme.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s' }}>
+                    {/* Row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
+                      {g.icon_url
+                        ? <img src={g.icon_url} style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                        : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(88,101,242,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, color: theme.muted }}>?</div>
+                      }
+                      <span style={{ fontWeight: 700, color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
+                      {isBlocked && <span style={{ fontSize: 10, background: 'rgba(237,66,69,0.15)', color: '#ED4245', border: '1px solid rgba(237,66,69,0.3)', borderRadius: 4, padding: '1px 5px' }}>🚫 Blocked</span>}
+                      {isWL && <span style={{ fontSize: 10, background: 'rgba(87,242,135,0.12)', color: 'var(--green)', border: '1px solid rgba(87,242,135,0.3)', borderRadius: 4, padding: '1px 5px' }}>✅ WL</span>}
+                      {g.boost_level > 0 && <span style={{ fontSize: 11, color: '#EB459E' }}>✨ L{g.boost_level}</span>}
+                      <span style={{ color: theme.muted, fontSize: 12 }}>👥 {g.member_count.toLocaleString()}</span>
+                      <span style={{ fontSize: 10, color: hasBackup ? 'var(--green)' : theme.muted, padding: '1px 5px', borderRadius: 4, background: hasBackup ? 'rgba(87,242,135,0.1)' : 'transparent', border: `1px solid ${hasBackup ? 'rgba(87,242,135,0.25)' : 'transparent'}` }}>
+                        {hasBackup ? '💾' : '—'}
+                      </span>
+                      <span style={{ color: theme.muted, fontSize: 11, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+                    </div>
+                    {/* Expanded detail */}
+                    {isOpen && (
+                      <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${theme.border}` }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, marginBottom: 10 }}>
+                          {[
+                            { label: 'Members',  value: g.member_count.toLocaleString() },
+                            { label: 'Channels', value: g.channel_count },
+                            { label: 'Roles',    value: g.role_count },
+                            { label: 'Boosts',   value: `${g.boost_count} (L${g.boost_level})` },
+                            { label: 'Created',  value: new Date(g.created_at).toLocaleDateString() },
+                          ].map(item => (
+                            <div key={item.label} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 7, padding: '8px 12px', minWidth: 90 }}>
+                              <div style={{ fontSize: 17, fontWeight: 800, color: '#5865F2', fontFamily: 'monospace' }}>{item.value}</div>
+                              <div style={{ fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{item.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {g.description && <div style={{ fontSize: 12, color: theme.muted, marginBottom: 8, fontStyle: 'italic' }}>"{g.description}"</div>}
+                        <div style={{ fontSize: 12, color: theme.muted, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          Owner:
+                          {ownerInfo.avatar && <img src={ownerInfo.avatar} style={{ width: 16, height: 16, borderRadius: '50%' }} />}
+                          <span style={{ color: theme.text, fontWeight: 600 }}>{ownerInfo.label}</span>
+                          {ownerInfo.sub && <span style={{ color: theme.muted }}>({ownerInfo.sub})</span>}
+                          <code style={{ color: theme.muted, fontSize: 10 }}>{g.owner_id}</code>
+                        </div>
+                        {shared.length > 0 && (
+                          <div style={{ fontSize: 12, color: theme.muted, marginBottom: 10 }}>
+                            🔗 Backup shared with: {shared.map(uid => {
+                              const u = resolveUser(uid);
+                              return <span key={uid} style={{ color: '#5865F2', marginRight: 6 }}>{u.label}</span>;
+                            })}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$info {g.id}</code>
+                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$save {g.id}</code>
+                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$backups {g.id}</code>
+                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$verifybackup {g.id}</code>
+                          <code style={{ color: theme.muted, fontSize: 10, alignSelf: 'center' }}>{g.id}</code>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
+        </>}
+
+        {view === 'backups' && <>
+          {card(<>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, color: theme.text, flex: 1 }}>
+                {(() => {
+                  const totalBackups = backupServerIds.reduce((n, sid) => n + (backupInv[sid]?.length ?? 0), 0);
+                  return `\u{1F4BE} Backup Registry \u2014 ${backupServerIds.length} server${backupServerIds.length !== 1 ? 's' : ''}, ${totalBackups} backup${totalBackups !== 1 ? 's' : ''}`;
+                })()}
+              </div>
+            </div>
+            {!liveData && <div style={{ color: theme.muted, fontSize: 13 }}>Waiting for data &mdash; hit Refresh.</div>}
+            {liveData && backupServerIds.length === 0 && (
+              <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: '#5865F2' }}>#$save &lt;server_id&gt;</code> to create one.</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {backupServerIds.map(sid => {
+                const g          = guildSnap[sid];
+                const rawOwnerId = String(backupOwners[sid] ?? '');
+                const ownerInfo  = rawOwnerId && rawOwnerId !== 'undefined' ? resolveUser(rawOwnerId) : null;
+                const shared     = (sharedAccess[sid] ?? []).map(String);
+                const entries    = backupInv[sid] ?? [];
+                const isOpen     = selectedServer === sid;
+                return (
+                  <div key={sid} style={{ border: `1px solid ${isOpen ? '#5865F2' : theme.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s' }}>
+                    <div onClick={() => setSelectedServer(isOpen ? null : sid)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: isOpen ? 'rgba(88,101,242,0.06)' : theme.surface2 }}>
+                      {g?.icon_url
+                        ? <img src={g.icon_url} style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0 }} />
+                        : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(88,101,242,0.15)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: theme.muted }}>?</div>
+                      }
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, color: theme.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {g?.name ?? <span style={{ color: theme.muted, fontStyle: 'italic' }}>Unknown server</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: theme.muted, fontFamily: 'monospace' }}>{sid}</div>
+                      </div>
+                      {ownerInfo && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, flexShrink: 0 }}>
+                          {ownerInfo.avatar && <img src={ownerInfo.avatar} style={{ width: 15, height: 15, borderRadius: '50%' }} />}
+                          <span style={{ color: theme.muted }}>Owner: <span style={{ color: '#5865F2' }}>{ownerInfo.label}</span></span>
+                        </div>
+                      )}
+                      {g && <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>&#128101; {g.member_count.toLocaleString()}</span>}
+                      <span style={{ background: 'rgba(88,101,242,0.12)', color: '#5865F2', fontSize: 11, padding: '2px 7px', borderRadius: 4, flexShrink: 0, fontWeight: 700 }}>
+                        {entries.length} backup{entries.length !== 1 ? 's' : ''}
+                      </span>
+                      {shared.length > 0 && (
+                        <span style={{ background: 'rgba(87,242,135,0.1)', color: 'var(--green)', fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid rgba(87,242,135,0.3)', flexShrink: 0 }}>
+                          &#128279; {shared.length}
+                        </span>
+                      )}
+                      <span style={{ color: theme.muted, fontSize: 11, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block', flexShrink: 0 }}>&#9658;</span>
+                    </div>
+                    {isOpen && (
+                      <div style={{ borderTop: `1px solid ${theme.border}` }}>
+                        {entries.map((b, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: theme.surface }}>
+                            <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0, minWidth: 160 }}>{b.timestamp_str}</span>
+                            <code style={{ color: theme.muted, fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.thread_name}</code>
+                            <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
+                              {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '—'}
+                            </span>
+                            {b.encrypted && (
+                              <span style={{ background: 'rgba(254,231,92,0.15)', color: '#FEE75C', fontSize: 10, padding: '1px 5px', borderRadius: 4, border: '1px solid rgba(254,231,92,0.3)', flexShrink: 0 }}>&#128274; ENC</span>
+                            )}
+                            <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>#{entries.length - i}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
+          {card(<>
+            <div style={{ fontWeight: 700, marginBottom: 10, color: theme.text, fontSize: 13 }}>&#128269; Quick Diff</div>
+            <div style={{ color: theme.muted, fontSize: 12 }}>
+              Run <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '1px 6px', borderRadius: 4 }}>#$diff {'<server_id> <n1> <n2>'}</code> in Discord to compare any two backups side by side.
+            </div>
+          </>)}
+        </>}
+
+        {view === 'access' && <>
+          {card(<>
+            <div style={{ fontWeight: 700, marginBottom: 14, color: theme.text }}>🔐 Access Control ({accessList.length})</div>
+            {accessList.length === 0 && <div style={{ color: theme.muted, fontSize: 13 }}>No admins or managers configured.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {accessList.map((a, i) => {
+                const u = resolveUser(a.id);
+                const roleColor = a.role === 'Owner' ? '#ED4245' : a.role === 'Manager' ? '#5865F2' : 'var(--green)';
+                const roleBg    = a.role === 'Owner' ? 'rgba(237,66,69,0.12)' : a.role === 'Manager' ? 'rgba(88,101,242,0.12)' : 'rgba(87,242,135,0.12)';
+                return (
+                  <div key={i} style={{ background: theme.surface2, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
+                    {u.avatar
+                      ? <img src={u.avatar} style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+                      : <div style={{ width: 32, height: 32, borderRadius: '50%', background: roleBg, border: `2px solid ${roleColor}55`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+                          {u.label[0]?.toUpperCase() ?? '?'}
+                        </div>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: theme.text }}>{u.label}</div>
+                      {u.sub && <div style={{ fontSize: 11, color: theme.muted }}>@{u.sub}</div>}
+                      <div style={{ fontSize: 10, color: theme.muted, fontFamily: 'monospace' }}>{a.id}</div>
+                    </div>
+                    <span style={{ padding: '3px 10px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: roleBg, color: roleColor, border: `1px solid ${roleColor}44`, flexShrink: 0 }}>
+                      {a.role}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(88,101,242,0.05)', borderRadius: 8, fontSize: 12, color: theme.muted }}>
+              Use <code style={{ color: '#5865F2' }}>#$addadmin / #$removeadmin</code> to manage admins · <code style={{ color: '#5865F2' }}>#$sharebackup</code> to grant per-server access
+            </div>
+          </>)}
+          {(wlGuilds.length > 0 || wlUsers.length > 0 || blGuilds.length > 0 || blUsers.length > 0) && card(<>
+            <div style={{ fontWeight: 700, marginBottom: 12, color: theme.text }}>📋 Server & User Lists</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {wlGuilds.map(id => { const g = guildSnap[id]; return <div key={id} style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center', color: 'var(--green)', padding: '3px 0' }}>✅ WL Guild: <span style={{ color: theme.text }}>{g?.name ?? id}</span> <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code></div>; })}
+              {wlUsers.map(id => { const u = resolveUser(id); return <div key={id} style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center', color: 'var(--green)', padding: '3px 0' }}>✅ WL User: <span style={{ color: theme.text }}>{u.label}</span> <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code></div>; })}
+              {blGuilds.map(id => { const g = guildSnap[id]; return <div key={id} style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center', color: '#ED4245', padding: '3px 0' }}>🚫 Blocked Guild: <span style={{ color: theme.text }}>{g?.name ?? id}</span> <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code></div>; })}
+              {blUsers.map(id => { const u = resolveUser(id); return <div key={id} style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center', color: '#ED4245', padding: '3px 0' }}>🚫 Blocked User: <span style={{ color: theme.text }}>{u.label}</span> <code style={{ color: theme.muted, fontSize: 10 }}>{id}</code></div>; })}
+            </div>
+          </>)}
+        </>}
+
+        {view === 'logs' && <>
+          {card(<>
+            <div style={{ fontWeight: 700, marginBottom: 14, color: theme.text }}>📋 Downtime Log</div>
+            {downtimeEvents.length === 0 && (
+              <div style={{ color: theme.muted, fontSize: 13 }}>No downtime events recorded. 🟢</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {[...downtimeEvents].reverse().map((d, i) => (
+                <div key={d.id ?? i} style={{ display: 'flex', gap: 14, padding: '8px 0', borderBottom: i < downtimeEvents.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'flex-start' }}>
+                  <span style={{ color: theme.muted, fontFamily: 'monospace', flexShrink: 0, width: 170 }}>{d.server_went_down_approx}</span>
+                  <span style={{ color: '#ED4245', flex: 1 }}>{d.reason}</span>
+                  <span style={{ color: theme.muted, flexShrink: 0 }}>{d.duration_human}</span>
+                  <span style={{ flexShrink: 0, color: d.bot_came_back_up ? 'var(--green)' : '#FEE75C' }}>
+                    {d.bot_came_back_up ? '✅ Resolved' : '⚠️ Ongoing'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>)}
+        </>}
+
+      </div>
+    </div>
+  );
+}
+
 function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string, string> }) {
   const [selected, setSelected] = useState(0);
   const [step, setStep] = useState(-1);
@@ -1288,6 +1861,25 @@ export default function App() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = useMemo(() => async () => {
+    try {
+      const res = await fetch(DATA_URL + '?t=' + Date.now());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setLiveData(json);
+      setLastSynced(Date.now());
+    } catch {
+      /* fall back to static */
+    }
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try { return localStorage.getItem('darkMode') !== 'false'; } catch { return true; }
   });
@@ -1306,7 +1898,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    async function fetchData() {
+    async function fetchOnce() {
       try {
         const res = await fetch(DATA_URL + '?t=' + Date.now());
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1319,8 +1911,8 @@ export default function App() {
         /* fall back to static */
       }
     }
-    fetchData();
-    const iv = setInterval(fetchData, 60_000);
+    fetchOnce();
+    const iv = setInterval(fetchOnce, 60_000);
     return () => {
       cancelled = true;
       clearInterval(iv);
@@ -1498,6 +2090,7 @@ export default function App() {
       />
       <style>{`
         @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         :root {
           --t: ${darkMode ? '#dcddde' : '#1a1b1e'};
           --muted: ${darkMode ? '#72767d' : '#55575e'};
@@ -1791,8 +2384,8 @@ export default function App() {
                 fontSize: 11,
                 fontWeight: 600,
                 letterSpacing: 0.2,
-                background: activeTab === t.id ? '#5865F2' : 'transparent',
-                color: activeTab === t.id ? '#fff' : theme.muted,
+                background: activeTab === t.id ? '#5865F2' : t.id === 'admin' ? 'rgba(237,66,69,0.1)' : 'transparent',
+                color: activeTab === t.id ? '#fff' : t.id === 'admin' ? '#ED4245' : theme.muted,
                 transition: 'all 0.2s',
                 position: 'relative',
               }}
@@ -2769,6 +3362,9 @@ export default function App() {
 
         {/* TRY IT */}
         {activeTab === 'tryit' && <TryItTab darkMode={darkMode} theme={theme} />}
+
+        {/* ADMIN */}
+        {activeTab === 'admin' && <AdminPanel theme={theme} darkMode={darkMode} liveData={liveData} onRefresh={handleRefresh} refreshing={refreshing} lastSynced={lastSynced} />}
 
         {/* HOW IT WORKS */}
         {activeTab === 'architecture' && (
