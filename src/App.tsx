@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 const DATA_URL =
-  'https://raw.githubusercontent.com/potatofemboy/discord-data/main/data.json';
+  'https://api.github.com/repos/potatofemboy/discord-data/contents/data.json';
 
 const BOT_INVITE_URL =
   'https://discord.com/oauth2/authorize?client_id=1473979364222701700&permissions=8&integration_type=0&scope=bot';
@@ -1439,7 +1439,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   );
 
   // Hash-based password verification against data.json's dashboard_password_hash
-  const storedHash: string | undefined = liveData?.secrets?.dashboard_password_hash;
+  const storedHash: string | undefined = liveData?.dashboard_password_hash;
 
   const attemptLogin = async () => {
     if (!pw || pwChecking) return;
@@ -1471,8 +1471,18 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
       <div style={{ fontSize: 40 }}>🔐</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: theme.text }}>Admin Access</div>
       {!storedHash
-        ? <div style={{ fontSize: 13, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 8, padding: '10px 16px', maxWidth: 380, textAlign: 'center' }}>
-            No password configured. Run <code style={{ color: '#FEE75C' }}>#$setdashpass &lt;password&gt;</code> in Discord to set one.
+        ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 13, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 8, padding: '10px 16px', maxWidth: 380, textAlign: 'center' }}>
+              No password detected. Run <code style={{ color: '#FEE75C' }}>#$setdashpass &lt;password&gt;</code> in Discord to set one.
+            </div>
+            <button
+              onClick={onRefresh}
+              disabled={refreshing}
+              style={{ padding: '7px 16px', borderRadius: 7, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.muted, fontSize: 12, cursor: refreshing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>↻</span>
+              {refreshing ? 'Checking…' : 'Check Again'}
+            </button>
           </div>
         : <div style={{ fontSize: 13, color: theme.muted }}>Enter the admin password to continue</div>
       }
@@ -2158,9 +2168,15 @@ export default function App() {
 
   const fetchData = useMemo(() => async () => {
     try {
-      const res = await fetch(DATA_URL + '?t=' + Date.now());
+      const res = await fetch(DATA_URL, {
+        headers: { 'Accept': 'application/vnd.github+json' },
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
+      const envelope = await res.json();
+      // GitHub API returns content as base64-encoded string
+      const decoded = atob(envelope.content.replace(/\n/g, ''));
+      const json = JSON.parse(decoded);
       setLiveData(json);
       setLastSynced(Date.now());
     } catch {
