@@ -452,61 +452,282 @@ const CHANGELOG: ChangelogEntry[] = [
 ];
 
 const FAQ: FaqEntry[] = [
+  { q: 'Who can back up a server?', a: 'Server owners with 20 or more members can run #$save on their own server. If your server is whitelisted by the bot owner, the member count requirement is waived.' },
+  { q: 'My server has under 20 members, can I still get a backup?', a: 'Not automatically. The bot will send you an invite to our support server when it leaves, and you can request a manual backup there: discord.gg/ynatEnRKWV' },
+  { q: 'How do I create a backup?', a: 'Run #$save <server_id> in DMs with the bot. It will walk you through options for channel blacklist, member data, format, encryption, and message capture.' },
+  { q: 'How do I find my server ID?', a: 'Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode), then right-click your server icon and click "Copy Server ID".' },
+  { q: 'The bot left my server. What happened?', a: 'The bot only joins servers temporarily to perform a backup or restore, then leaves. This is intentional. You interact with it via DMs, not through a server bot.' },
+  { q: 'How do I invite the bot?', a: 'Click the Invite Bot button at the top of this page. The bot will join your server, perform the requested operation, and leave automatically.' },
+  { q: 'Does the bot stay in my server permanently?', a: 'No. The bot joins temporarily to perform a backup or restore, then leaves on its own. It does not remain as a permanent member.' },
+  { q: 'Do I need any special permissions to use the bot?', a: 'You need to be the server owner. Standard admins and moderators of a server cannot use backup commands unless the bot owner grants them admin or manager access.' },
+  { q: 'Can I use the bot from inside my server?', a: 'No. All commands are sent to the bot via DMs. The bot does not respond to commands typed inside servers.' },
+  { q: 'What prefix does the bot use?', a: 'All commands start with #$. For example: #$save, #$load, #$backups.' },
+  { q: 'Does the bot work with any Discord server?', a: 'Yes, as long as your server has 20 or more members. Servers under 20 members require manual whitelisting by the bot owner.' },
+  { q: 'How do I know if my backup was successful?', a: 'The bot will send you a confirmation message with the backup details after #$save completes. You can also run #$verifybackup to confirm the file is intact.' },
+  { q: 'Can I use the bot on multiple servers?', a: 'Yes. You can run #$save <server_id> for each server you own. Each server gets its own backup storage.' },
+  { q: 'Is there a guide or documentation?', a: 'Yes. Check the Commands tab on this website for a full list of commands and the Try It tab for interactive examples.' },
+  { q: 'How do I contact support?', a: 'Join the support server at discord.gg/ynatEnRKWV and open a ticket.' },
+  { q: 'What does a backup include?', a: 'Roles, channels, categories, emojis, stickers, bans, members, webhooks, automod rules, scheduled events, welcome screen, soundboard, threads, and optionally message history.' },
+  { q: 'What is NOT included in a backup?', a: 'Message history is opt-in and not saved by default. Boost status, nitro perks, and third-party integrations (like bots) are not included.' },
+  { q: 'How are backups stored?', a: 'Backups are compressed and stored securely. Multiple backups per server are kept, but are automatically deleted after 30 days. Use #$delbackup to clean up old ones manually.' },
+  { q: 'How many backups can I store per server?', a: 'There is no hard limit on the number of backups, but all backups are automatically deleted after 30 days. Use #$backups to see what you have and #$delbackup to clean up manually.' },
+  { q: 'How do I view my backups?', a: 'Run #$backups <server_id> to list all stored backups for a server, showing backup number, timestamp, and file size.' },
+  { q: 'How do I delete a backup?', a: 'Run #$delbackup <server_id> <backup_number>. Use #$backups to find the backup number first (1 = oldest).' },
+  { q: 'Can I verify a backup is intact before restoring?', a: 'Yes. Run #$verifybackup <server_id> to download and fully decompress the backup and report role, channel, and member counts. Defaults to the most recent backup.' },
+  { q: 'Does the bot save message history by default?', a: 'No. Message history is opt-in. During the #$save flow the bot will ask whether you want to capture messages and which channels to include.' },
+  { q: 'How do I compare two backups?', a: 'Run #$diff <server_id> <n1> <n2> to compare two backups side by side, showing added/removed/renamed roles, channels, and member count changes.' },
+  { q: 'Can I encrypt my backups?', a: 'Yes. During the #$save setup flow you will be prompted to optionally set an encryption password. You will need to provide it again when restoring.' },
+  { q: 'How long do backups stay before being deleted?', a: '30 days. All backups are automatically purged after 30 days. Use #$backups to check ages and #$delbackup to remove ones you no longer need.' },
+  { q: 'Can I back up multiple servers at once?', a: 'Yes. Run #$save <id1> <id2> <id3> with multiple server IDs in one command to queue them all.' },
+  { q: 'What file format are backups saved in?', a: 'Backups are compressed archives. The format is chosen during the #$save setup flow.' },
+  { q: 'Can I download my backup file?', a: 'Backup files are stored on our servers and are not directly downloadable. Use #$verifybackup to confirm integrity.' },
+  { q: 'What does the backup number mean?', a: 'Backup #1 is always the oldest. Each new backup increments the number. Use #$backups <server_id> to see the list with numbers.' },
+  { q: 'Can I blacklist channels from being backed up?', a: 'Yes. During the #$save setup flow the bot will ask which channels to exclude from the backup.' },
+  { q: 'Does the backup include banned users?', a: 'Yes. Ban lists are included in the backup by default.' },
+  { q: 'Does the backup include server emojis and stickers?', a: 'Yes. Custom emojis and stickers are included in the backup.' },
+  { q: 'Does the backup save role permissions?', a: 'Yes. All role names, colors, permissions, and hierarchy positions are saved.' },
+  { q: 'Does the backup include webhooks?', a: 'Yes. Webhooks are included in the backup.' },
+  { q: 'Does the backup include automod rules?', a: 'Yes. AutoMod rules and configurations are saved as part of the backup.' },
+  { q: 'Does the backup include scheduled events?', a: 'Yes. Scheduled events are saved in the backup.' },
+  { q: 'Does the backup include the welcome screen?', a: 'Yes. The server welcome screen configuration is included.' },
+  { q: 'Does the backup include soundboard sounds?', a: 'Yes. Soundboard sounds are included in the backup.' },
+  { q: 'Does the backup include threads?', a: 'Yes. Thread channels and their configurations are included.' },
+  { q: 'Does the backup include member nicknames?', a: 'Yes, if member data is enabled during the #$save setup flow.' },
+  { q: 'Does the backup include member roles?', a: 'Yes, if member data is enabled during the #$save setup flow, role assignments per member are saved.' },
+  { q: 'How big are backup files typically?', a: 'Size varies by server. Small servers are a few KB. Large servers with thousands of members and message history can be several MB.' },
+  { q: 'What happens to my backups if I stop using the bot?', a: 'They will be automatically deleted after 30 days as normal. There is no special action required.' },
+  { q: 'How do I restore a backup?', a: 'Run #$load <src_id> <tgt_id>. If the server has multiple backups the bot will list them and wait for you to pick one. The bot will confirm before wiping and rebuilding.' },
+  { q: 'Does restoring a backup wipe my current server?', a: 'Yes. The restore process deletes existing channels and roles before rebuilding from the backup. Make sure you want to fully overwrite the target server before running #$load.' },
+  { q: 'Can I restore onto a server with fewer than 20 members?', a: 'Yes, the 20-member limit only applies when creating a new backup. Loading an existing backup has no member count requirement, as long as it is your own server.' },
+  { q: 'Can I load someone else\'s backup?', a: 'No. You can only load backups registered to your own server. The bot tracks backup ownership and will reject any attempt to load a backup you did not create. You can however be granted shared access via #$sharebackup.' },
+  { q: 'Can I restore a backup onto a different server than it was taken from?', a: 'Yes. #$load <src_id> <tgt_id> lets you restore a backup from any server you own onto any other server you own.' },
+  { q: 'What happens if the bot goes offline mid-restore?', a: 'The restore may be incomplete. Re-run #$load once the bot is back online. Use #$verifybackup first to confirm the backup file is intact.' },
+  { q: 'How long does a restore take?', a: 'Depends on server size. Small servers finish in under a minute. Large servers with hundreds of channels and thousands of members can take several minutes. The bot uses 5 helper instances in parallel to speed up the process.' },
+  { q: 'Will restoring re-invite my old members?', a: 'No. Member data such as nicknames and role assignments is restored, but the bot cannot re-invite members who left the server.' },
+  { q: 'Will restoring re-add my old bots?', a: 'No. Third-party bots are not included in the backup. You will need to re-invite them manually.' },
+  { q: 'Can I do a partial restore, like only channels?', a: 'No. The restore is all-or-nothing. It rebuilds the full server structure from the backup.' },
+  { q: 'What happens to my current channels during a restore?', a: 'They are deleted before the backup is applied. Make sure you are ready to lose all current server content.' },
+  { q: 'Can I restore a backup to a brand new empty server?', a: 'Yes. Create a new Discord server, then run #$load <src_id> <new_server_id> to restore onto it.' },
+  { q: 'Will my server\'s boost level be restored?', a: 'No. Boost status depends on members actively boosting and cannot be restored by the bot.' },
+  { q: 'Will the restored server have the same invite links?', a: 'No. Discord invite links are not included in backups and will need to be recreated after a restore.' },
+  { q: 'How do I pick which backup to restore if I have multiple?', a: 'When you run #$load, the bot will list all available backups with numbers and timestamps and ask you to pick one by replying with the number.' },
+  { q: 'Can I restore an encrypted backup?', a: 'Yes. Run #$load as normal and the bot will prompt you to provide the encryption password before restoring.' },
+  { q: 'What if I forgot my backup encryption password?', a: 'Unfortunately encrypted backups cannot be decrypted without the password. There is no recovery option. Keep your password safe.' },
+  { q: 'Does restoring keep the server\'s existing bans?', a: 'No. Existing bans are removed and replaced with the bans from the backup.' },
+  { q: 'Does restoring restore channel topic descriptions?', a: 'Yes. Channel names, topics, and permission overwrites are all restored.' },
+  { q: 'How do I set up automatic backups?', a: 'Run #$autobackup <server_id> <hours> to schedule backups on a repeating interval. It walks you through the same setup as #$save (channel blacklist, members, format, encryption, messages).' },
+  { q: 'Can I cancel or change my autobackup schedule?', a: 'Yes. Run #$autobackup cancel <server_id> to remove a schedule, or run #$autobackup <server_id> <hours> again to reconfigure it. Schedules survive bot restarts.' },
+  { q: 'How do autobackup intervals work?', a: 'All schedules are clock-aligned to UTC midnight. A 3h schedule fires at 12am, 3am, 6am, 9am, etc. A 1h and 3h schedule will both fire together at those shared slots.' },
+  { q: 'Can I see a list of my active autobackup schedules?', a: 'Yes. Run #$autobackup list to see all active schedules, their intervals, last run time, and notify channel.' },
+  { q: 'What is the minimum autobackup interval?', a: '1 hour. You can schedule backups as frequently as every hour.' },
+  { q: 'Can I get notified when an autobackup completes?', a: 'Yes. During the autobackup setup the bot will ask if you want a notification and which channel to post it in.' },
+  { q: 'Do autobackup schedules survive bot restarts?', a: 'Yes. All autobackup schedules are persisted and resume automatically after any restart or downtime.' },
+  { q: 'Can I have multiple autobackup schedules for different servers?', a: 'Yes. Each server has its own independent autobackup schedule. Run #$autobackup for each server separately.' },
+  { q: 'What happens if an autobackup fails?', a: 'The bot will log the error and try again at the next scheduled interval. Check #$autobackup list to see the last run time.' },
+  { q: 'Can I set autobackup to run daily?', a: 'Yes. Run #$autobackup <server_id> 24 to schedule a backup every 24 hours.' },
+  { q: 'Can I set autobackup to run weekly?', a: 'Yes. Run #$autobackup <server_id> 168 to schedule a backup every 7 days (168 hours).' },
+  { q: 'Who can set up autobackup?', a: 'Manager+ access is required to set up autobackup schedules.' },
+  { q: 'Will autobackup overwrite old backups?', a: 'No. Each autobackup run creates a new backup entry. Old entries are kept until they expire after 30 days or are manually deleted.' },
+  { q: 'Can I share my backup with someone else?', a: 'Yes. Run #$sharebackup <server_id> <user_id> to grant a user shared access. They can restore it with #$load but cannot delete or modify it.' },
+  { q: 'How do I revoke shared access?', a: 'Run #$unsharebackup <server_id> <user_id> to remove a user\'s shared access.' },
+  { q: 'How do I see who has shared access to my backup?', a: 'Run #$sharedwith <server_id> to list all users who currently have shared access.' },
+  { q: 'Can someone with shared access delete my backups?', a: 'No. Shared access only allows restoring. They cannot delete, modify, or re-share your backups.' },
+  { q: 'Can I share a backup with multiple people?', a: 'Yes. Run #$sharebackup for each user you want to grant access to. There is no limit on how many users can have shared access.' },
+  { q: 'Does shared access expire?', a: 'No. Shared access persists until you revoke it with #$unsharebackup.' },
+  { q: 'Can a shared user see all my backups or just one?', a: 'Shared access is per server. Granting someone access to a server\'s backup gives them access to all backups for that specific server.' },
+  { q: 'What can a shared user do with my backup?', a: 'They can run #$load to restore the backup onto a server they own. They cannot view backup contents, delete, or modify them.' },
+  { q: 'What\'s the difference between Manager and Admin?', a: 'Manager is above Admin. Managers can trigger autobackups and have all Admin permissions. Admins handle access control and server info commands but cannot create or restore backups.' },
+  { q: 'How do I add an admin?', a: 'Run #$addadmin <user_id> to grant a user admin-level bot access. This persists across restarts.' },
+  { q: 'How do I remove an admin?', a: 'Run #$removeadmin <user_id> to revoke admin access from a user.' },
+  { q: 'How do I view current admins and managers?', a: 'Run #$viewadmins to list all current managers and admins with their user IDs.' },
+  { q: 'Can I assign a Discord role as an auto-admin?', a: 'Yes. Run #$setadminrole <guild_id> <role_id>. Anyone in that guild with that role is automatically granted admin bot access.' },
+  { q: 'Can I view what roles a user has?', a: 'Yes. Run #$viewroles <user_id> to list all roles a user has across every server the bot shares with them.' },
+  { q: 'How do I whitelist a server to bypass the 20-member limit?', a: 'The bot owner runs #$allowserver <server_id>. This waives the member count requirement and removes the server from the blocklist if present.' },
+  { q: 'How do I block a server from using the bot?', a: 'The bot owner runs #$blockserver <server_id>. This prevents all backup operations for that server.' },
+  { q: 'How do I whitelist a user to bypass the 20-member limit?', a: 'The bot owner runs #$allowuser <user_id>. This waives the member count requirement for all their servers.' },
+  { q: 'How do I block a user from using the bot?', a: 'The bot owner runs #$blockuser <user_id>. This blocks them from all backup operations.' },
+  { q: 'How do I view all whitelisted and blocked servers/users?', a: 'Run #$viewaccess to see the full access registry including all whitelists and blocklists.' },
+  { q: 'Do admin permissions persist after the bot restarts?', a: 'Yes. All admin and manager assignments are saved and persist across restarts.' },
+  { q: 'Can an admin use backup commands?', a: 'No. Backup commands (save, load, delbackup, etc.) require server owner level. Admins handle access control and server info only.' },
+  { q: 'Can a manager use backup commands?', a: 'Managers can use autobackup and clone. Full backup/restore commands are server-owner level.' },
+  { q: 'I got blocked, what do I do?', a: 'Join the support server at discord.gg/ynatEnRKWV and open a ticket explaining the situation. Include your user ID and server ID.' },
+  { q: 'My server got blocked even though I didn\'t do anything wrong.', a: 'Blocks can sometimes be issued in error. Join discord.gg/ynatEnRKWV and open a ticket with your server ID and a brief explanation.' },
+  { q: 'Can the bot owner whitelist my server to bypass the 20-member limit?', a: 'Yes. The bot owner can run #$allowserver <server_id> to waive the 20-member requirement. Request this in the support server.' },
+  { q: 'Why was my server blocked?', a: 'Servers are typically blocked for abuse, spam, or violating usage rules. Join discord.gg/ynatEnRKWV and open a ticket to find out and appeal.' },
+  { q: 'Why was my account blocked?', a: 'Accounts are blocked for abuse, attempting to access other users\' backups, or other violations. Open a ticket at discord.gg/ynatEnRKWV to appeal.' },
+  { q: 'Can I get unblocked?', a: 'Yes, if the block was in error or you can demonstrate the issue has been resolved. Open a ticket at discord.gg/ynatEnRKWV.' },
+  { q: 'I was blocked but I did not abuse the bot.', a: 'Open a ticket in the support server at discord.gg/ynatEnRKWV with your user/server ID and explain the situation. Blocks can be reversed.' },
+  { q: 'What counts as abuse of the bot?', a: 'Attempting to access backups you do not own, spamming commands, using the bot for malicious purposes, or intentionally causing issues for other users.' },
+  { q: 'What are the helper bots?', a: 'The bot runs 5 parallel helper bot instances. During a restore, roles and channels are created across all instances simultaneously to work around Discord\'s rate limits and speed up large restores.' },
+  { q: 'Why does the bot need to join my server?', a: 'The bot needs to be in your server temporarily to read its structure during a backup, or to create channels/roles during a restore. It leaves automatically when done.' },
+  { q: 'Is there a way to clone a server directly without saving a file?', a: 'Yes. Run #$clone <src_id> <tgt_id> to copy a live server\'s structure directly onto another server without creating a backup file. Manager+ only.' },
+  { q: 'How do I check if the bot is online?', a: 'Check the Status tab on this website. It shows live uptime, last ping time, and days without downtime.' },
+  { q: 'What happens if the bot goes offline mid-backup?', a: 'The backup file may be incomplete. Once the bot is back online, re-run #$save and use #$verifybackup to confirm the new backup is valid.' },
+  { q: 'Does the bot store my server data permanently?', a: 'No. Backups are automatically deleted after 30 days unless you delete them earlier with #$delbackup.' },
+  { q: 'Does the bot log my commands?', a: 'Errors are logged for debugging purposes. Normal command usage is not permanently logged.' },
+  { q: 'Is the bot open source?', a: 'No. The bot is privately maintained. For questions about how it works, ask in the support server.' },
+  { q: 'What Discord permissions does the bot need?', a: 'The bot requires Administrator permissions to read and recreate all server structures accurately during backup and restore.' },
+  { q: 'What happens if Discord\'s API rate limits the bot mid-backup?', a: 'The bot handles rate limits automatically and will slow down or pause until limits reset. Your backup will still complete.' },
+  { q: 'What happens if Discord\'s API rate limits the bot mid-restore?', a: 'The bot uses 5 helper instances to spread the load across rate limit buckets. If a limit is hit it waits and retries automatically.' },
+  { q: 'Can the bot back up a server it is not currently in?', a: 'No. The bot must join the server temporarily to read its structure. It will join, back up, then leave.' },
+  { q: 'How does the bot handle very large servers?', a: 'Large servers take longer but the bot is designed to handle them. It uses parallel helper instances and processes roles, channels, and members in batches.' },
+  { q: 'Does the bot support servers with threads and forums?', a: 'Yes. Thread channels and forum posts are included in backups.' },
+  { q: 'Does the bot support Stage channels?', a: 'Yes. Stage channels are included in the backup.' },
+  { q: 'Does the bot support Voice channels?', a: 'Yes. Voice channels and their permission overwrites are backed up and restored.' },
+  { q: 'What Discord server features are preserved in a backup?', a: 'Roles, channels (text, voice, forum, stage, announcement), categories, emojis, stickers, bans, members, webhooks, automod rules, scheduled events, welcome screen, soundboard, and threads.' },
+  { q: 'Does the bot work with community servers?', a: 'Yes. Community servers are fully supported including announcement channels, welcome screens, and rules channels.' },
+  { q: 'Can the bot restore a backup to a server in a different region?', a: 'Yes. Server region is not a factor in backup or restore operations.' },
+  { q: 'Does the bot preserve channel order?', a: 'Yes. Channels and categories are restored in the same order as they were in the original server.' },
+  { q: 'Does the bot preserve role hierarchy?', a: 'Yes. Role positions and hierarchy are saved and restored.' },
+  { q: 'Does the bot preserve role colors?', a: 'Yes. Role colors are included in the backup.' },
+  { q: 'Does the bot preserve channel permission overwrites?', a: 'Yes. Per-channel role and user permission overwrites are included in the backup.' },
+  { q: 'What is #$info used for?', a: 'Run #$info <server_id> to get live server stats: name, ID, owner, member count, channels, roles, boost level, verification level, and creation date.' },
+  { q: 'What is #$whois used for?', a: 'Run #$whois <user_id> to look up a user\'s profile across all servers the bot shares with them.' },
+  { q: 'What does #$stats show?', a: 'It shows bot statistics like total servers, total backups, uptime, and system resource usage.' },
+  { q: 'What does #$uptime show?', a: 'It shows how long the bot has been running since its last restart.' },
+  { q: 'What does #$downs show?', a: 'It shows the bot\'s downtime history and recent outage events.' },
+  { q: 'How does #$pingcheck work?', a: 'It checks the bot\'s connection latency to Discord\'s API and reports the result.' },
+  { q: 'The bot says my server has under 20 members but it does not.', a: 'Make sure you are using the correct server ID. If you believe this is an error, open a ticket in the support server.' },
+  { q: 'The bot is not responding to my DMs.', a: 'Make sure you have DMs enabled from server members in your Discord privacy settings. Also confirm the bot is online via the Status tab.' },
+  { q: 'The backup command says \'guild not found\'.', a: 'Make sure the server ID is correct and the bot is currently in or able to join that server. Check the server ID using Discord\'s Developer Mode.' },
+  { q: 'The restore says \'guild not found\' for the target server.', a: 'Make sure the target server ID is correct and the bot can join it. The bot must be able to access the target server to restore onto it.' },
+  { q: 'I ran #$save but nothing happened.', a: 'Check that you are DMing the bot and not sending the message in a server. Also confirm the bot is online via the Status tab.' },
+  { q: 'The bot said my backup was successful but #$backups shows nothing.', a: 'The backup list updates after a short delay. Wait a minute and run #$backups again. If it still shows nothing, open a support ticket.' },
+  { q: 'I got an \'encryption password required\' error during restore.', a: 'Your backup was saved with an encryption password. Provide it when prompted during #$load. If you forgot it, the backup cannot be recovered.' },
+  { q: 'The restore seems to have stopped halfway.', a: 'The bot may have hit a rate limit or encountered a Discord API error. Wait a few minutes and re-run #$load. Use #$verifybackup beforehand.' },
+  { q: 'Why did the bot kick itself from my server after backing up?', a: 'This is intentional. The bot leaves after completing its task. You do not need to kick it.' },
+  { q: 'The bot says \'backup not found\' when I try to restore.', a: 'Make sure the backup number is correct. Run #$backups <server_id> to see the list. Remember: 1 is oldest, the highest number is newest.' },
+  { q: 'The bot says I do not own this backup.', a: 'Backups are tied to the server owner who created them. If you are not the original owner or have not been granted shared access, you cannot load it.' },
+  { q: 'The bot says the command failed. What should I do?', a: 'Note the error message and open a support ticket at discord.gg/ynatEnRKWV with your user ID, server ID, and the exact error.' },
+  { q: 'The bot joined my server but did not do anything.', a: 'This could be a rate limit or permission issue. Make sure the bot has Administrator permissions. If the issue persists open a support ticket.' },
+  { q: 'Can I retry a failed backup?', a: 'Yes. Simply run #$save again. Failed backups do not count against your stored backups.' },
+  { q: 'Can I retry a failed restore?', a: 'Yes. Run #$load again. Run #$verifybackup first to confirm the backup file is valid.' },
+  { q: 'The autobackup did not run at the expected time.', a: 'Autobackup schedules are clock-aligned to UTC midnight. Check the exact schedule with #$autobackup list. Slight delays of a few minutes are normal.' },
+  { q: 'The bot is slow to respond.', a: 'The bot may be under heavy load or experiencing rate limits. Check the Status tab for any reported issues.' },
+  { q: 'I accidentally deleted all my channels and roles. Can the bot recover them?', a: 'Only if you have a backup. Run #$load to restore from your most recent backup. This is exactly why regular backups are recommended.' },
+  { q: 'The bot says \'no backups found\' for a server I definitely backed up.', a: 'Backups expire after 30 days. If it has been more than 30 days since your last backup it may have been automatically deleted.' },
+  { q: 'Is it safe to give the bot Administrator permissions?', a: 'The bot needs Administrator to read and rebuild your full server structure. It only uses permissions during the backup/restore operation and leaves afterward.' },
+  { q: 'Can the bot read my messages?', a: 'The bot can read messages if you opt into message history capture during the #$save flow. It does not read messages otherwise.' },
+  { q: 'Who has access to my backup data?', a: 'Only you (the server owner) and anyone you explicitly grant shared access to via #$sharebackup.' },
+  { q: 'Is my backup data encrypted in transit?', a: 'Yes. All communication with Discord\'s API uses HTTPS. Backup files can additionally be encrypted with a password you set during #$save.' },
+  { q: 'Can the bot owner see my backup contents?', a: 'Technically the bot owner has access to the underlying storage. For sensitive servers we recommend using the encryption option during #$save.' },
+  { q: 'How do I request deletion of my data?', a: 'Open a ticket in the support server at discord.gg/ynatEnRKWV. Backups are also auto-deleted after 30 days.' },
+  { q: 'Does the bot collect any personal information?', a: 'The bot stores server structure data (roles, channels, members) as part of the backup. No personal data beyond what is part of your Discord server is collected.' },
+  { q: 'Is the bot compliant with Discord\'s Terms of Service?', a: 'Yes. The bot operates within Discord\'s API guidelines and ToS.' },
+  { q: 'Is the bot free?', a: 'Yes, completely free. No subscriptions, no paywalls, no premium tiers.' },
+  { q: 'Will the bot ever become paid?', a: 'There are no current plans to charge for the bot. If that ever changes, existing users will be notified.' },
+  { q: 'How do I report a bug?', a: 'Open a ticket in the support server at discord.gg/ynatEnRKWV with a description of the issue, your user ID, and the server ID if relevant.' },
+  { q: 'How do I suggest a feature?', a: 'Open a ticket or post in the suggestions channel in the support server at discord.gg/ynatEnRKWV.' },
+  { q: 'Is there a changelog?', a: 'Yes. Check the Changelog tab on this website for a full history of updates.' },
+  { q: 'How often is the bot updated?', a: 'Updates are released as needed. Check the Changelog tab for the latest changes.' },
+  { q: 'Can I self-host this bot?', a: 'No. The bot is not publicly available for self-hosting.' },
+  { q: 'Does the bot support slash commands?', a: 'No. The bot uses the #$ prefix for all commands, sent via DMs.' },
+  { q: 'Can I use the bot from a phone?', a: 'Yes. You can DM the bot and run commands from the Discord mobile app just like on desktop.' },
+  { q: 'What should I do if I think someone is abusing the bot?', a: 'Report it by opening a ticket in the support server at discord.gg/ynatEnRKWV with relevant details.' },
+  { q: 'Does the bot have an uptime guarantee?', a: 'No formal SLA, but the bot is monitored and downtime is typically resolved quickly. Check the Status tab for history.' },
+  { q: 'How do I see the bot\'s current status?', a: 'Check the Status tab on this website. It shows real-time online/offline status, uptime %, and recent downtime events.' },
+  { q: 'What is the support server?', a: 'It is the official Discord server for this bot where you can get help, report issues, and request features: discord.gg/ynatEnRKWV' },
+  { q: 'Can I DM the bot directly?', a: 'Yes. All commands are sent to the bot via DMs. Find it by its username and start a conversation.' },
+  { q: 'What happens if I leave the support server?', a: 'Nothing happens to your backups or account. The support server is just for getting help.' },
+  { q: 'Does the bot have rate limits?', a: 'Yes. The bot enforces internal rate limits to prevent abuse and stay within Discord\'s API limits. Repeated spam of commands may temporarily slow your requests.' },
+  { q: 'Can multiple people from the same server use the bot?', a: 'Only the server owner can use backup/restore commands. Other users can be granted admin or manager access for limited commands.' },
+  { q: 'Is there a limit on how many servers I can back up?', a: 'No hard limit. You can back up as many servers as you own.' },
+  { q: 'What is #$export used for?', a: 'It exports various data in a readable format. Check #$help export for specifics.' },
+  { q: 'What is #$alert used for?', a: 'It sends an alert message to all bot admins. Used by the bot owner to broadcast important notices.' },
+  { q: 'What is #$announce used for?', a: 'Manager+ only. Sends an announcement to a specified server channel via the bot.' },
+  { q: 'What is #$monitor used for?', a: 'Manager+ only. Monitors a server for changes and logs them. Use #$unmonitor to stop.' },
+  { q: 'What is #$notes used for?', a: 'Allows storing and retrieving notes tied to a server or user ID. Useful for admin record-keeping.' },
+  { q: 'What is #$disconnect used for?', a: 'Forces the bot to disconnect from a server it may be stuck in. Admin+ only.' },
+  { q: 'What is #$move used for?', a: 'Moves a target user between voice channels. Admin+ only.' },
+  { q: 'Does the bot support two-factor authentication servers?', a: 'Yes. The bot works with 2FA-required servers as long as the bot account itself meets Discord\'s 2FA requirements for moderation actions.' },
+  { q: 'Can the bot restore onto a server I just created?', a: 'Yes. Create a fresh server and run #$load <src_id> <new_id> to restore a backup onto it.' },
+  { q: 'Will a restore remove the default @everyone role?', a: 'No. The @everyone role always exists on Discord servers and cannot be deleted. Its permissions will be updated to match the backup.' },
+  { q: 'Does the bot send any messages to my server during backup?', a: 'No. The bot joins, performs the backup silently, and leaves. No messages are posted in your server channels.' },
+  { q: 'Does the bot send any messages to my server during restore?', a: 'No. The bot performs the restore silently. No messages are posted in channels during the process.' },
+  { q: 'Can I back up a server that I am not the owner of?', a: 'No. You must be the registered owner of the server. Being an admin or moderator is not sufficient.' },
+  { q: 'Does the backup preserve the server name and icon?', a: 'Yes. Server name and icon are included in the backup and restored.' },
+  { q: 'Does the backup preserve the server description?', a: 'Yes. The server description is included in the backup.' },
+  { q: 'Does the backup preserve verification level settings?', a: 'Yes. Server verification level, explicit content filter, and other moderation settings are backed up.' },
+  { q: 'Does the backup preserve the AFK channel setting?', a: 'Yes. The AFK channel and timeout settings are included in the backup.' },
+  { q: 'Does the backup preserve system channel settings?', a: 'Yes. System channel configuration including boost and join messages are included.' },
+  { q: 'Can I restore a backup to a server in a different Discord data region?', a: 'Yes. Server regions do not affect backup or restore operations.' },
+  { q: 'How do I know which backup number to restore?', a: 'Run #$backups <server_id> to see a list with numbers and timestamps. Backup #1 is the oldest and the highest number is the most recent.' },
+  { q: 'What is the difference between #$save and #$saveall?', a: '#$save backs up specific server IDs you provide. #$save all runs a fresh backup for every server that already has at least one existing backup.' },
+  { q: 'Can I use the bot if the bot owner is offline?', a: 'Yes. The bot runs independently. You do not need the bot owner to be online to use backup commands.' },
+  { q: 'Does the bot need to stay in my server after a backup?', a: 'No. The bot leaves automatically after completing the backup. There is no need to manually kick it.' },
+  { q: 'What happens if I kick the bot while it is backing up?', a: 'The backup will likely be interrupted and incomplete. Do not kick the bot while an operation is in progress.' },
+  { q: 'What happens if I kick the bot while it is restoring?', a: 'The restore will be interrupted and your server may be left in a partial state. Do not kick the bot mid-restore.' },
+  { q: 'Can I back up a server that has NSFW channels?', a: 'Yes. NSFW channel configurations are backed up and restored. Channel content (messages) is only included if you opt into message history.' },
+  { q: 'Can I back up a server with community features enabled?', a: 'Yes. Community servers are fully supported.' },
+  { q: 'Can I back up a private server?', a: 'Yes. As long as you are the server owner the bot can be invited to join and back it up regardless of whether the server is public or private.' },
+  { q: 'What is the #$restart command?', a: 'Restarts the bot process. Owner or admin with confirmation. Records a clean exit before restarting.' },
+  { q: 'What is the #$end command?', a: 'Gracefully shuts the bot down. Owner only. Records a clean exit so no downtime is logged on next start.' },
+  { q: 'Can I back up a server to use as a template?', a: 'Yes. Back up your template server and then use #$load to restore it onto a new server whenever you need a fresh copy.' },
+  { q: 'How do I use the bot to migrate a server?', a: 'Back up the source server with #$save, create a new server, then restore with #$load <src_id> <new_server_id>.' },
+  { q: 'Does the bot support backing up servers with hundreds of channels?', a: 'Yes. The bot handles large servers with many channels. Backups and restores may take longer for very large servers.' },
+  { q: 'Does the bot support backing up servers with thousands of members?', a: 'Yes. Member data is included if you enable it during the #$save flow. Very large member lists may add time to the backup.' },
+  { q: 'Can I store backups of the same server from different points in time?', a: 'Yes. Every time you run #$save a new backup entry is created. Old backups are kept for 30 days alongside newer ones.' },
+  { q: 'Does the bot notify me when a backup expires?', a: 'No. There is no expiry notification. Monitor your backups with #$backups and run #$save regularly to keep fresh copies.' },
+  { q: 'Can I set the bot to notify me when a backup is about to expire?', a: 'Not currently. This is a potential future feature. For now, use #$autobackup to keep backups fresh automatically.' },
+  { q: 'How do I back up a server right now without any prompts?', a: 'Currently #$save always walks through the setup flow. There is no one-command silent backup. The setup typically takes under a minute.' },
+  { q: 'Can I use the bot on a server I manage but do not own?', a: 'No. Only the registered server owner can use backup commands. You would need the owner to run the commands or grant you manager/admin access.' },
+  { q: 'What is the difference between #$blockserver and #$blockuser?', a: '#$blockserver blocks a specific server from all backup operations. #$blockuser blocks a specific user account from all backup operations across all their servers.' },
+  { q: 'What is the difference between #$allowserver and #$allowuser?', a: '#$allowserver whitelists a server to bypass the 20-member minimum. #$allowuser whitelists a user so the 20-member minimum is waived for all their servers.' },
+  { q: 'Can I run backup commands from a server channel?', a: 'No. All commands must be sent to the bot via DMs. The bot ignores commands in server channels.' },
+  { q: 'Can the bot back up a server while people are active in it?', a: 'Yes. The backup reads the server structure at a point in time and does not require the server to be inactive.' },
+  { q: 'Does the backup capture the server\'s current boost tier?', a: 'No. Boost tier depends on active boosts from members and is not restorable by the bot.' },
+  { q: 'What is #$verifybackup used for?', a: 'It downloads and decompresses a backup to confirm it can be fully parsed. It reports role, channel, and member counts. Run this before a restore to make sure the backup is valid.' },
+  { q: 'What is #$diff used for?', a: 'It compares two backup snapshots of the same server side by side, showing what changed between them in terms of roles, channels, and member counts.' },
+  { q: 'How do I check how many backups I have for a server?', a: 'Run #$backups <server_id>. It lists all backups with their number, timestamp, and file size.' },
+  { q: 'Can I have a backup of a server I no longer own?', a: 'No. Backup access is tied to server ownership. If you no longer own the server you cannot access its backups unless you were the original creator.' },
+  { q: 'What is the #$saveall command?', a: 'It refreshes backups for every server that already has at least one existing backup. Servers with no prior backup are skipped. Owner only.' },
+  { q: 'Can I back up a server I was banned from?', a: 'No. The bot needs to be able to join the server. If you are banned you cannot invite the bot.' },
+  { q: 'What is the fastest way to restore a server after it gets nuked?', a: 'Run #$load <server_id> <new_server_id> using your most recent backup. Set up #$autobackup so you always have a recent backup ready.' },
+  { q: 'What does the admin panel on this website show?', a: 'The admin panel is only accessible with a password. It shows live server data, backup inventory, error logs, autobackup schedules, access control, and quick answers.' },
+  { q: 'How do I set the admin panel password?', a: 'The bot owner runs #$setdashpass <password> in DMs with the bot to set the dashboard password hash.' },
+  { q: 'Is the admin panel public?', a: 'No. It requires a password to access and is intended for the bot owner only.' },
+  { q: 'How often does the dashboard update?', a: 'The dashboard data is refreshed from the bot every 5 minutes automatically, or you can click Refresh to update immediately.' },
+  { q: 'What does \'stale backup\' mean on the dashboard?', a: 'A stale backup warning appears when a server has not been backed up in more than 7 days. It is a reminder to run #$save again.' },
+  { q: 'Can I export backup data from the admin panel?', a: 'Yes. The admin panel has an Export JSON button in the Backups tab that downloads a full backup inventory file.' },
+  { q: 'How do I copy a server ID from the admin panel?', a: 'Click on any server ID displayed in the admin panel. It copies to your clipboard automatically.' },
+  { q: 'Can I use autobackup on a server I am a manager of?', a: 'Yes. Managers can set up autobackup schedules. Run #$autobackup <server_id> <hours> and follow the prompts.' },
+  { q: 'What happens to shared access when a backup expires?', a: 'The backup is deleted along with all shared access records for it. Users will need to be re-granted access if a new backup is created.' },
+  { q: 'Can I back up a server that is currently being raided?', a: 'Yes. The bot reads the server structure at the time of backup. You may want to run #$save immediately after a raid to capture any cleanup you have done.' },
+  { q: 'Does the bot work if my server has the maximum number of roles?', a: 'The bot can read and restore up to Discord\'s maximum role limit per server. If the target server already has roles it will clear them first during a restore.' },
+  { q: 'Does the bot work with emoji-only role names or special characters?', a: 'Yes. Role and channel names including emoji, special characters, and unicode are fully supported.' },
+  { q: 'Can the backup be used to transfer a server to a different owner?', a: 'The backup preserves structure. To effectively transfer, restore the backup onto a new server that the new owner controls.' },
+  { q: 'Can I back up a server that has age-restricted channels?', a: 'Yes. Age-restricted (NSFW) channel settings are fully backed up and restored along with all other channel configurations.' },
+  { q: 'Does the bot support backing up forum channels?', a: 'Yes. Forum channels and their post configurations are included in backups.' },
+  { q: 'What happens if I run #$load on a server that already has channels?', a: 'All existing channels and roles on the target server are deleted before the backup is applied. The server is fully rebuilt from the backup.' },
+  { q: 'Can I run #$save on a server that currently has an active autobackup?', a: 'Yes. Manual #$save and autobackup schedules are independent. Running #$save manually creates an additional backup entry alongside the scheduled ones.' },
+  { q: 'Does running #$save cancel my autobackup schedule?', a: 'No. Manual saves and autobackup schedules are completely independent. Your schedule continues unchanged.' },
+  { q: 'Is there a way to see the full list of bot commands?', a: 'Yes. Run #$help in DMs with the bot for a full command list, or check the Commands tab on this website.' },
+];
+
+const PUBLIC_FAQ: FaqEntry[] = [
   {
-    q: 'Who can back up a server?',
-    a: 'Server owners with 20 or more members can run #$save on their own server. Managers can also trigger saves. If your server is whitelisted by the bot owner, the member count requirement is waived.',
+    q: 'What is this bot?',
+    a: 'A Discord bot that backs up and restores your entire server — roles, channels, members, emojis, bans, webhooks, and more. Run #$save to create a backup and #$load to restore it.',
   },
   {
-    q: 'My server has under 20 members, can I still get a backup?',
-    a: 'Not automatically. The bot will send you an invite to our support server when it leaves, and you can request a manual backup there: discord.gg/ynatEnRKWV',
-  },
-  {
-    q: "Can I load someone else's backup?",
-    a: "No. You can only load backups that are registered to your own server. The bot tracks backup ownership and will reject any attempt to load a backup you didn't create.",
-  },
-  {
-    q: 'Can I restore onto a server with fewer than 20 members?',
-    a: "Yes, the 20-member limit only applies when creating a new backup. Loading an existing backup has no member count requirement, as long as it's your own server.",
+    q: 'Is it free?',
+    a: 'Yes, completely free. No subscriptions, no paywalls.',
   },
   {
     q: 'What does a backup include?',
     a: 'Roles, channels, categories, emojis, stickers, bans, members, webhooks, automod rules, scheduled events, welcome screen, soundboard, threads, and optionally message history.',
   },
   {
-    q: 'How are backups stored?',
-    a: 'Backups are compressed and stored securely on our servers. Multiple backups per server are kept, but are automatically deleted after 30 days. Use #$delbackup to clean up old ones manually.',
+    q: 'Who can use it?',
+    a: 'Any Discord server owner with 20+ members can use the bot. If your server has fewer than 20 members you can request a manual backup in the support server.',
   },
   {
-    q: "What's the difference between Manager and Admin?",
-    a: 'Manager is above Admin. Managers have all Admin permissions plus the ability to trigger server backups. Admins handle access control and server info commands.',
+    q: 'Is it safe?',
+    a: 'Backups are stored securely and are only accessible to the server owner who created them. The bot cannot access your server without being invited.',
   },
   {
-    q: 'I got blocked, what do I do?',
-    a: 'If your server or account has been blocked from using the backup system, join the support server at discord.gg/ynatEnRKWV and open a ticket.',
-  },
-  {
-    q: 'Does restoring a backup wipe my current server?',
-    a: 'Yes. The restore process deletes existing channels and roles before rebuilding from the backup. Make sure you want to fully overwrite the target server before running #$load.',
-  },
-  {
-    q: 'Does the bot save message history by default?',
-    a: 'No. Message history is opt-in. During the #$save flow the bot will ask whether you want to capture messages and which channels to include.',
-  },
-  {
-    q: 'How many backups can I store per server?',
-    a: 'There is no hard limit on the number of backups, but all backups are automatically deleted after 30 days. Use #$backups to see what you have and #$delbackup to clean up manually before then.',
-  },
-  {
-    q: 'Can I cancel or change my autobackup schedule?',
-    a: 'Yes. Use #$autobackup cancel <server_id> to remove a schedule, or run #$autobackup <server_id> <hours> again to reconfigure it. The setup walks you through the same steps as #$save (blacklist, members, format, encryption, message capture). All schedules are clock-aligned to UTC midnight — a 1h and 3h schedule will both fire together at 3am, 6am, 9am, etc. Schedules survive bot restarts.',
-  },
-  {
-    q: 'What are the helper bots?',
-    a: 'The bot runs 5 parallel helper bot instances alongside the main bot. During a restore, roles and channels are created across all instances simultaneously to work around Discord\'s rate limits and speed up large restores.',
-  },
-  {
-    q: 'What happens if the bot goes offline mid-backup or mid-restore?',
-    a: 'The bot has a heartbeat and downtime detector. If it crashes mid-operation the backup or restore may be incomplete, so you can re-run the command once the bot is back online. Use #$verifybackup to confirm a saved backup is intact before restoring.',
+    q: 'How long does a backup take?',
+    a: 'Most servers back up in under a minute. Large servers with thousands of members or hundreds of channels may take a few minutes. Restores take slightly longer.',
   },
 ];
 
@@ -1359,7 +1580,30 @@ async function hashPassword(password: string): Promise<string> {
   }
 }
 
-type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs';
+type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs' | 'quick_answers';
+
+function QuickAnswerRow({ item, theme }: { item: FaqEntry; theme: Record<string, string> }) {
+  const [copied, setCopied] = React.useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(item.a).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div style={{ background: theme.surface2 ?? 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '10px 14px', border: `1px solid ${theme.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: theme.text, marginBottom: 4 }}>{item.q}</div>
+          <div style={{ fontSize: 12, color: theme.muted, lineHeight: 1.5 }}>{item.a}</div>
+        </div>
+        <button onClick={copy} style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 6, border: `1px solid ${theme.border}`, background: copied ? 'rgba(87,242,135,0.15)' : 'transparent', color: copied ? '#57F287' : theme.muted, fontSize: 11, cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+          {copied ? '✓ Copied' : '📋 Copy'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null }) {
   const [authed, setAuthed] = useState(false);
@@ -1372,13 +1616,15 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const [serverSearch, setServerSearch] = useState('');
   const [backupSearch, setBackupSearch] = useState('');
   const [errorSearch, setErrorSearch] = useState('');
+  const [quickSearch, setQuickSearch] = useState('');
 
   const ADMIN_VIEWS: { id: AdminView; label: string; icon: string }[] = [
-    { id: 'dashboard', label: 'Dashboard',    icon: '📊' },
-    { id: 'servers',   label: 'Servers',      icon: '🌐' },
-    { id: 'backups',   label: 'Backups',      icon: '💾' },
-    { id: 'access',    label: 'Access Control', icon: '🔐' },
-    { id: 'logs',      label: 'Error Log',    icon: '❌' },
+    { id: 'dashboard',     label: 'Dashboard',      icon: '📊' },
+    { id: 'servers',       label: 'Servers',        icon: '🌐' },
+    { id: 'backups',       label: 'Backups',        icon: '💾' },
+    { id: 'access',        label: 'Access Control', icon: '🔐' },
+    { id: 'logs',          label: 'Error Log',      icon: '❌' },
+    { id: 'quick_answers', label: 'Quick Answers',  icon: '💬' },
   ];
 
   // ── Real data from liveData (data.json) ──────────────────────────────────
@@ -1906,6 +2152,12 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                         </div>
                       )}
                       {g && <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>&#128101; {g.member_count.toLocaleString()}</span>}
+                      {(() => {
+                        const totalKb = entries.reduce((sum: number, b: any) => sum + (b.size_kb ?? 0), 0);
+                        if (!totalKb) return null;
+                        const display = totalKb >= 1024 ? `${(totalKb / 1024).toFixed(1)} MB` : `${totalKb} KB`;
+                        return <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>💿 {display}</span>;
+                      })()}
                       {stale && <span style={{ fontSize: 10, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>⚠️ {days}d ago</span>}
                       <span style={{ background: 'rgba(88,101,242,0.12)', color: '#5865F2', fontSize: 11, padding: '2px 7px', borderRadius: 4, flexShrink: 0, fontWeight: 700 }}>
                         {entries.length} backup{entries.length !== 1 ? 's' : ''}
@@ -2106,6 +2358,31 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                     {d.bot_came_back_up ? '✅ Resolved' : '⚠️ Ongoing'}
                   </span>
                 </div>
+              ))}
+            </div>
+          </>)}
+        </>}
+
+        {view === 'quick_answers' && <>
+          {card(<>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <div style={{ fontWeight: 700, color: theme.text, flex: 1 }}>💬 Quick Answers ({FAQ.length})</div>
+            </div>
+            <div style={{ fontSize: 12, color: theme.muted, marginBottom: 10 }}>Copy-paste friendly answers for common support questions.</div>
+            <input
+              type="text"
+              placeholder="🔍 Search questions…"
+              value={quickSearch}
+              onChange={e => setQuickSearch(e.target.value)}
+              style={{ width: '100%', padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 13, outline: 'none', marginBottom: 12, boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
+              {FAQ.filter(item => {
+                if (!quickSearch.trim()) return true;
+                const q = quickSearch.toLowerCase();
+                return item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q);
+              }).map((item, i) => (
+                <QuickAnswerRow key={i} item={item} theme={theme} />
               ))}
             </div>
           </>)}
@@ -2504,6 +2781,10 @@ export default function App() {
           --input-bg: ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'};
           --green: ${darkMode ? '#57F287' : '#1a8a3c'};
         }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.15)'}; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: ${darkMode ? 'rgba(88,101,242,0.5)' : 'rgba(88,101,242,0.4)'}; }
       `}</style>
 
       <Toast message={toast.message} visible={toast.visible} />
@@ -3434,7 +3715,7 @@ export default function App() {
                 }}
               />
             </div>
-            {FAQ.filter(item =>
+            {PUBLIC_FAQ.filter(item =>
               !faqSearch || item.q.toLowerCase().includes(faqSearch.toLowerCase()) || item.a.toLowerCase().includes(faqSearch.toLowerCase())
             ).map((item, i) => (
               <FaqItem
