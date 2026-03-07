@@ -137,13 +137,25 @@ const COMMANDS: Record<string, CommandGroupData> = {
         name: 'save',
         args: '<server_id> [id2 ...]',
         desc: 'Back up one or more servers. Saves roles, channels, categories, emojis, stickers, bans, members, webhooks, automod rules, scheduled events, welcome screen, soundboard, and threads.',
+        perm: 'Server Owner',
+      },
+      {
+        name: 'save all',
+        args: '',
+        desc: 'Refresh backups for every server that already has at least one backup. Servers with no prior backup are skipped. Prompts once for shared options then runs all saves in parallel.',
         perm: 'Owner',
+      },
+      {
+        name: 'clone',
+        args: '<src_id> <tgt_id>',
+        desc: 'Copy a live server\'s structure (roles, channels, categories) directly onto another server without saving a file first.',
+        perm: 'Manager',
       },
       {
         name: 'load',
         args: '<src_id> <tgt_id>',
         desc: 'Restore a backup onto a target server. If the source has multiple backups the bot lists them and waits for you to pick one.',
-        perm: 'Owner',
+        perm: 'Server Owner',
       },
       {
         name: 'backups',
@@ -167,6 +179,30 @@ const COMMANDS: Record<string, CommandGroupData> = {
         name: 'verifybackup',
         args: '<server_id> [backup_number]',
         desc: 'Download and verify a backup can be fully decompressed and parsed. Reports role, channel, and member counts. Defaults to the most recent backup.',
+        perm: 'Owner',
+      },
+      {
+        name: 'diff',
+        args: '<server_id> <n1> <n2>',
+        desc: 'Compare two backups side by side, showing added/removed/renamed roles, channels, and member count changes.',
+        perm: 'Owner',
+      },
+      {
+        name: 'sharebackup',
+        args: '<server_id> <user_id>',
+        desc: 'Grant a user shared access to a server\'s backups. They can restore it with #$load but cannot delete or modify it.',
+        perm: 'Server Owner',
+      },
+      {
+        name: 'unsharebackup',
+        args: '<server_id> <user_id>',
+        desc: 'Revoke a user\'s shared access to a server\'s backups.',
+        perm: 'Server Owner',
+      },
+      {
+        name: 'sharedwith',
+        args: '<server_id>',
+        desc: 'List all users who currently have shared access to a server\'s backups.',
         perm: 'Owner',
       },
     ],
@@ -271,8 +307,8 @@ const COMMANDS: Record<string, CommandGroupData> = {
 
 const STATS: StatItem[] = [
   { label: 'Days Live', value: DAYS_LIVE, suffix: '' },
-  { label: 'Lines Of Code', value: 10000, suffix: '+' },
-  { label: 'Commands', value: 15, suffix: '+' },
+  { label: 'Lines Of Code', value: 11000, suffix: '+' },
+  { label: 'Commands', value: 20, suffix: '+' },
   { label: 'Backups Stored', value: 50, suffix: '+' },
   { label: 'Helper Bots', value: 5, suffix: '' },
 ];
@@ -1333,13 +1369,16 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const [view, setView] = useState<AdminView>('dashboard');
   const [selectedServer, setSelectedServer] = useState<string | null>(null);
   const [serverSort, setServerSort] = useState<'members_desc' | 'members_asc' | 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'backed_up'>('members_desc');
+  const [serverSearch, setServerSearch] = useState('');
+  const [backupSearch, setBackupSearch] = useState('');
+  const [errorSearch, setErrorSearch] = useState('');
 
   const ADMIN_VIEWS: { id: AdminView; label: string; icon: string }[] = [
     { id: 'dashboard', label: 'Dashboard',    icon: '📊' },
     { id: 'servers',   label: 'Servers',      icon: '🌐' },
     { id: 'backups',   label: 'Backups',      icon: '💾' },
     { id: 'access',    label: 'Access Control', icon: '🔐' },
-    { id: 'logs',      label: 'Logs',         icon: '📋' },
+    { id: 'logs',      label: 'Error Log',    icon: '❌' },
   ];
 
   // ── Real data from liveData (data.json) ──────────────────────────────────
@@ -1522,9 +1561,14 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             background: view === v.id ? 'rgba(88,101,242,0.15)' : 'transparent',
             color: view === v.id ? '#5865F2' : theme.text,
             fontWeight: view === v.id ? 700 : 400, fontSize: 13,
-            transition: 'background 0.15s',
+            transition: 'background 0.15s', display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            {v.icon} {v.label}
+            <span>{v.icon} {v.label}</span>
+            {v.id === 'logs' && (liveData?.error_log ?? []).length > 0 && (
+              <span style={{ marginLeft: 'auto', background: '#ED4245', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, minWidth: 18, textAlign: 'center' }}>
+                {(liveData.error_log.length > 99 ? '99+' : liveData.error_log.length)}
+              </span>
+            )}
           </button>
         ))}
         <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1664,7 +1708,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         {view === 'servers' && <>
           {card(<>
             {/* Header + sort controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
               <div style={{ fontWeight: 700, color: theme.text, flex: 1 }}>🌐 All Servers ({allGuilds.length})</div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {([
@@ -1686,10 +1730,21 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 ))}
               </div>
             </div>
+            <input
+              type="text"
+              placeholder="🔍 Search servers by name or ID…"
+              value={serverSearch}
+              onChange={e => setServerSearch(e.target.value)}
+              style={{ width: '100%', padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 13, outline: 'none', marginBottom: 12, boxSizing: 'border-box' }}
+            />
 
             {allGuilds.length === 0 && <div style={{ color: theme.muted, fontSize: 13 }}>No live guild data yet. Hit Refresh or check back after bot restart.</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[...allGuilds].sort((a, b) => {
+              {[...allGuilds].filter(g => {
+                if (!serverSearch.trim()) return true;
+                const q = serverSearch.toLowerCase();
+                return g.name.toLowerCase().includes(q) || g.id.includes(q);
+              }).sort((a, b) => {
                 if (serverSort === 'members_desc') return b.member_count - a.member_count;
                 if (serverSort === 'members_asc')  return a.member_count - b.member_count;
                 if (serverSort === 'created_desc') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -1801,8 +1856,21 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             {liveData && backupServerIds.length === 0 && (
               <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: '#5865F2' }}>#$save &lt;server_id&gt;</code> to create one.</div>
             )}
+            {backupServerIds.length > 0 && (
+              <input
+                type="text"
+                placeholder="🔍 Search by server name or ID…"
+                value={backupSearch}
+                onChange={e => setBackupSearch(e.target.value)}
+                style={{ width: '100%', padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 13, outline: 'none', marginBottom: 4, boxSizing: 'border-box' }}
+              />
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {backupServerIds.map(sid => {
+              {backupServerIds.filter(sid => {
+                if (!backupSearch.trim()) return true;
+                const q = backupSearch.toLowerCase();
+                return sid.includes(q) || (guildSnap[sid]?.name ?? '').toLowerCase().includes(q);
+              }).map(sid => {
                 const g          = guildSnap[sid];
                 const rawOwnerId = String(backupOwners[sid] ?? '');
                 const ownerInfo  = rawOwnerId && rawOwnerId !== 'undefined' ? resolveUser(rawOwnerId) : null;
@@ -1986,6 +2054,43 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         </>}
 
         {view === 'logs' && <>
+          {card(<>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, color: theme.text, flex: 1 }}>
+                ❌ Error Log ({(liveData?.error_log ?? []).length})
+              </div>
+              {(liveData?.error_log ?? []).length > 0 && (
+                <input
+                  type="text"
+                  placeholder="🔍 Search errors…"
+                  value={errorSearch}
+                  onChange={e => setErrorSearch(e.target.value)}
+                  style={{ padding: '5px 10px', borderRadius: 6, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 12, outline: 'none', width: 200 }}
+                />
+              )}
+            </div>
+            {(liveData?.error_log ?? []).length === 0 && (
+              <div style={{ color: theme.muted, fontSize: 13 }}>No errors recorded. 🟢</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {[...(liveData?.error_log ?? [])].reverse().filter((e: any) => {
+                if (!errorSearch.trim()) return true;
+                const q = errorSearch.toLowerCase();
+                return (e.cmd ?? '').toLowerCase().includes(q)
+                  || (e.error ?? '').toLowerCase().includes(q)
+                  || (e.user ?? '').toLowerCase().includes(q)
+                  || String(e.user_id ?? '').includes(q);
+              }).map((e: any, i: number, arr: any[]) => (
+                <div key={i} style={{ display: 'flex', gap: 10, padding: '9px 0', borderBottom: i < arr.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 10, flexShrink: 0, width: 140 }}>{e.ts ? new Date(e.ts).toLocaleString() : '—'}</span>
+                  <span style={{ color: '#5865F2', fontFamily: 'monospace', fontWeight: 700, flexShrink: 0 }}>#{e.cmd ?? '?'}</span>
+                  {e.args && <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>{e.args}</span>}
+                  <span style={{ color: '#ED4245', flex: 1, minWidth: 200 }}>{e.error ?? 'Unknown error'}</span>
+                  <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>{e.user ?? e.user_id ?? '—'}</span>
+                </div>
+              ))}
+            </div>
+          </>)}
           {card(<>
             <div style={{ fontWeight: 700, marginBottom: 14, color: theme.text }}>📋 Downtime Log</div>
             {downtimeEvents.length === 0 && (
