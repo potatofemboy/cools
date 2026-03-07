@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 const DATA_URL =
   'https://raw.githubusercontent.com/potatofemboy/discord-data/main/data.json';
@@ -92,6 +92,15 @@ interface LiveData {
   guild_snapshot?: Record<string, GuildInfo>;
   user_cache?: Record<string, UserInfo>;
   backup_inventory?: Record<string, BackupEntry[]>; // server_id -> list of backups
+  autobackup_schedules?: Record<string, {
+    interval_hours: number;
+    last_run_ts: number;
+    notify_channel_id?: number;
+    ch_bl?: string[];
+    save_mb?: boolean;
+    fmt_v?: number;
+    encrypt_password?: string | null;
+  }>;
 }
 
 interface StatItem {
@@ -151,8 +160,8 @@ const COMMANDS: Record<string, CommandGroupData> = {
       {
         name: 'autobackup',
         args: '<server_id> <hours>',
-        desc: 'Schedule automatic backups on a repeating interval. Also supports: autobackup list, autobackup cancel <server_id>.',
-        perm: 'Owner',
+        desc: 'Schedule automatic backups on a clock-aligned repeating interval (e.g. every 3h fires at 3am, 6am, 9am… UTC). Walks you through the same interactive setup as #$save: channel blacklist, member data, format, encryption, and message capture. Multiple schedules share clock slots — a 1h and 3h will both fire at 3am, 6am, etc. Also supports: autobackup list, autobackup cancel <server_id>.',
+        perm: 'Manager',
       },
       {
         name: 'verifybackup',
@@ -270,15 +279,46 @@ const STATS: StatItem[] = [
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.1.5',
+    date: 'Mar 7, 2026',
+    tag: 'minor',
+    color: '#FF7043',
+    changes: [
+      'Autobackup now walks through the same interactive setup as #$save (channel blacklist, member data, format, encryption, message capture)',
+      'Autobackup schedules are now clock-aligned to UTC midnight — a 1h and 3h schedule both fire at 3am, 6am, 9am etc.',
+      'Autobackup no longer fires immediately on setup — always waits for the next clock slot (minimum 60s)',
+      'Autobackup now posts a start/finish notification to the channel where it was configured, matching the #$save UI',
+      'Autobackup permission raised to Manager+ (was accessible to Admins previously)',
+      'Admin panel backups tab now shows all active autobackup schedules with interval, next run countdown, format, and member settings',
+      'Deleting a backup now immediately updates the admin panel without waiting for the next sync',
+      'Fixed UnboundLocalError crash in on_message caused by a bare import datetime inside the massmute branch shadowing the module-level import',
+    ],
+  },
+  {
+    version: 'v1.1.4',
+    date: 'Mar 7, 2026',
+    tag: 'minor',
+    color: '#00BCD4',
+    changes: [
+      'Status page services are now expandable; each shows its own uptime %, day-bar chart, and incident history',
+      'Fixed offline false positive: bot is now only marked offline if heartbeat is over 5 minutes old',
+      'Added Check Again button to status page for instant manual refresh',
+      'Fixed --green CSS variable circular reference in dark mode affecting pulse dots and uptime colors',
+      'Fixed uptime % card borders not showing in dark mode',
+      'Admin panel backup registry now scans the actual storage forum threads instead of relying on backup_owners',
+      'Admin panel server sort controls: most/least members, newest/oldest, A-Z, backed up first',
+    ],
+  },
+  {
     version: 'v1.1.3',
     date: 'Mar 6, 2026',
     tag: 'minor',
-    color: '#EB459E',
+    color: '#FFB300',
     changes: [
-      'Added #$diff — compare any two backups side by side with a color-coded change report',
+      'Added #$diff: compare any two backups side by side with a color-coded change report',
       'Added optional AES-256 encryption on save (#$save → Step 5/6), use --password flag on load/verify to decrypt',
-      'Added #$sharebackup / #$unsharebackup — grant or revoke backup access to other users per server',
-      'Added #$sharedwith — list all users who have shared access to a server\'s backups',
+      'Added #$sharebackup / #$unsharebackup to grant or revoke backup access to other users per server',
+      'Added #$sharedwith: list all users who have shared access to a server\'s backups',
       'Added password-protected admin panel tab',
     ],
   },
@@ -314,7 +354,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.1.0',
     date: 'Mar 6, 2026',
     tag: 'dashboard',
-    color: '#EB459E',
+    color: '#9C27B0',
     changes: [
       'Added invite button and support server button to the header',
       'Added unverified bot notice linking to the support server',
@@ -337,7 +377,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.0.2',
     date: 'Mar 6, 2026',
     tag: 'patch',
-    color: 'var(--green)',
+    color: '#FF5252',
     changes: [
       'Fixed a memory leak in the stat counter animations on the dashboard',
       'Uptime percentage now correctly handles incidents that cross window boundaries',
@@ -351,7 +391,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.0.1',
     date: 'Mar 1, 2026',
     tag: 'release',
-    color: 'var(--green)',
+    color: '#26C6DA',
     changes: [
       'Public release, bot opened to server owners',
       'Server owner self-service backups (20+ member requirement)',
@@ -364,7 +404,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.0.0',
     date: 'Feb 20, 2026',
     tag: 'initial build',
-    color: '#5865F2',
+    color: '#69F0AE',
     changes: [
       'Initial build: backup, restore, clone, and autobackup system',
       'Downtime detector with heartbeat pulse and clean shutdown tracking',
@@ -422,7 +462,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     q: 'Can I cancel or change my autobackup schedule?',
-    a: 'Yes. Use #$autobackup cancel <server_id> to remove a schedule, or run #$autobackup <server_id> <hours> again with a new interval to overwrite it. Schedules survive bot restarts.',
+    a: 'Yes. Use #$autobackup cancel <server_id> to remove a schedule, or run #$autobackup <server_id> <hours> again to reconfigure it. The setup walks you through the same steps as #$save (blacklist, members, format, encryption, message capture). All schedules are clock-aligned to UTC midnight — a 1h and 3h schedule will both fire together at 3am, 6am, 9am, etc. Schedules survive bot restarts.',
   },
   {
     q: 'What are the helper bots?',
@@ -618,7 +658,7 @@ function StatCard({
   suffix,
   delay,
   started,
-}: StatItem & { delay: number; started: boolean }) {
+}: StatItem & { key?: React.Key; delay: number; started: boolean }) {
   const count = useCountUp(value, 1200 + delay * 100, started);
   const isLarge = value >= 10000;
   const [compact, setCompact] = useState(() => {
@@ -693,6 +733,7 @@ function CommandGroup({
   copiedCmd,
   copyCmd,
 }: {
+  key?: React.Key;
   name: string;
   data: CommandGroupData;
   isOpen: boolean;
@@ -901,6 +942,7 @@ function FaqItem({
   isOpen,
   onToggle,
 }: {
+  key?: React.Key;
   item: FaqEntry;
   isOpen: boolean;
   onToggle: () => void;
@@ -1078,9 +1120,12 @@ function getDayGradient(
   return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
-function isBotOnline(heartbeat: Heartbeat): boolean | null {
+function isBotOnline(heartbeat: Heartbeat, fetchedAt: number | null): boolean | null {
   if (!heartbeat) return null;
-  return Date.now() - new Date(heartbeat.last_seen).getTime() < 10 * 60 * 1000;
+  // Measure heartbeat age at the moment we fetched, not now;
+  // otherwise a 60s fetch interval + 4min old heartbeat = false offline
+  const reference = fetchedAt ?? Date.now();
+  return reference - new Date(heartbeat.last_seen).getTime() < 5 * 60 * 1000;
 }
 
 const TRY_IT_EXAMPLES = [
@@ -1091,34 +1136,34 @@ const TRY_IT_EXAMPLES = [
       { from: 'bot', lines: [
         '📦 Configuring backup of **Neon Lounge**',
         '',
-        '**Step 1/5 — Channel/category blacklist**',
+        '**Step 1/5: Channel/category blacklist**',
         'Enter comma-separated channel/category names to skip, or reply `skip` for none:',
       ]},
       { from: 'user', text: 'skip' },
       { from: 'bot', lines: [
-        '**Step 2/5 — Save member data?**',
+        '**Step 2/5: Save member data?**',
         'Reply `yes` to save members or `no` to skip.',
       ]},
       { from: 'user', text: 'yes' },
       { from: 'bot', lines: [
-        '**Step 3/5 — Member filter**',
+        '**Step 3/5: Member filter**',
         'Reply `all`, `whitelist <ids>`, or `blacklist <ids>`.',
       ]},
       { from: 'user', text: 'all' },
       { from: 'bot', lines: [
-        '**Step 4/5 — Backup format**',
+        '**Step 4/5: Backup format**',
         'Reply `1`–`5` (default: 5 = lzma, smallest).',
       ]},
       { from: 'user', text: '5' },
       { from: 'bot', lines: [
-        '**Step 5/5 — Message capture**',
+        '**Step 5/5: Message capture**',
         'Reply `c <channel_id>` to capture a channel, or `done` to skip.',
       ]},
       { from: 'user', text: 'done' },
       { from: 'bot', lines: [
         '🚀 Starting backup of **Neon Lounge**…',
         '',
-        '✅ Backup of **Neon Lounge** complete! **874.2 KB**',
+        '✅ Backup of **Neon Lounge** complete! **874.2 KB** — took 38s',
       ]},
     ],
   },
@@ -1142,7 +1187,7 @@ const TRY_IT_EXAMPLES = [
     desc: 'Verify a backup',
     conversation: [
       { from: 'bot', lines: [
-        '✅ **Backup #1 verified — no errors!**',
+        '✅ **Backup #1 verified, no errors!**',
         '',
         '📅 Saved: `2026-03-06 14:03:55 UTC`',
         '📦 Size: 874.2 KB',
@@ -1189,11 +1234,94 @@ const TRY_IT_EXAMPLES = [
       ]},
     ],
   },
+  {
+    cmd: '#$diff 8294710365820194 1 2',
+    desc: 'Diff two backups',
+    conversation: [
+      { from: 'bot', lines: [
+        '🔍 **Diff: Neon Lounge** — backup #2 vs #1',
+        '',
+        '**Roles** — 1 change',
+        '  ➕ Added: `Trial Member`',
+        '',
+        '**Channels** — 3 changes',
+        '  ➕ Added: `#announcements-v2`',
+        '  ➖ Removed: `#old-chat`',
+        '  ✏️  Renamed: `#general` → `#general-chat`',
+        '',
+        '**Members** — no change  •  **Emojis** — no change',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$sharebackup 8294710365820194 198765432100000099',
+    desc: 'Share backup access',
+    conversation: [
+      { from: 'bot', lines: [
+        '✅ **backup_user#4242** now has shared access to backups for **Neon Lounge**.',
+        'They can run `#$load 8294710365820194 <target>` to restore it.',
+        '',
+        'Use `#$unsharebackup 8294710365820194 198765432100000099` to revoke.',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$load 8294710365820194 9182736450192837',
+    desc: 'Restore a backup',
+    conversation: [
+      { from: 'bot', lines: [
+        '📦 **3 backup(s)** found for **Neon Lounge**. Reply with a number to pick one:',
+        '',
+        '  **1.** `2026-03-06 14:03:55 UTC`  •  874.2 KB  ← newest',
+        '  **2.** `2026-03-05 09:22:11 UTC`  •  871.0 KB',
+        '  **3.** `2026-03-04 11:51:48 UTC`  •  868.5 KB',
+      ]},
+      { from: 'user', text: '1' },
+      { from: 'bot', lines: [
+        '⚠️  This will **delete all existing channels and roles** on **Empty Server** and replace them.',
+        'Reply `confirm` to continue or anything else to cancel.',
+      ]},
+      { from: 'user', text: 'confirm' },
+      { from: 'bot', lines: [
+        '🔄 Restoring **Neon Lounge** → **Empty Server**…',
+        '',
+        '✅ Restore complete! Took **1m 12s**',
+        '  📋 Roles: 28  •  💬 Channels: 41  •  👥 Members: 318',
+      ]},
+    ],
+  },
+  {
+    cmd: '#$delbackup 8294710365820194 3',
+    desc: 'Delete a backup',
+    conversation: [
+      { from: 'bot', lines: [
+        '🗑️ Deleted backup **#3** (`2026-03-04 11:51:48 UTC`) for **Neon Lounge**.',
+        '2 backup(s) remaining.',
+      ]},
+    ],
+  },
 ];
 
 // ─── Admin Panel ────────────────────────────────────────────────────────────
 
-const ADMIN_PASSWORD = "ADMIN#BACKUP.1234@PASSWORD";
+// Hash a password using PBKDF2-SHA256 (same params as main.py dashboard_password_hash).
+// Returns hex string. Falls back to a simple SHA-256 if SubtleCrypto unavailable.
+async function hashPassword(password: string): Promise<string> {
+  try {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode('discord-backup-bot'), iterations: 100000 },
+      keyMaterial, 256
+    );
+    return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    // fallback: plain SHA-256
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest('SHA-256', enc.encode(password));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+}
 
 type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs';
 
@@ -1201,6 +1329,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState('');
   const [pwError, setPwError] = useState(false);
+  const [pwChecking, setPwChecking] = useState(false);
   const [view, setView] = useState<AdminView>('dashboard');
   const [selectedServer, setSelectedServer] = useState<string | null>(null);
   const [serverSort, setServerSort] = useState<'members_desc' | 'members_asc' | 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'backed_up'>('members_desc');
@@ -1226,6 +1355,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const guildSnap:     Record<string,GuildInfo>    = liveData?.guild_snapshot          ?? {};
   const userCache:     Record<string,UserInfo>     = liveData?.user_cache              ?? {};
   const backupInv:     Record<string,BackupEntry[]> = liveData?.backup_inventory       ?? {};
+  const autobackupSchedules: Record<string, { interval_hours: number; last_run_ts: number; notify_channel_id?: number; ch_bl?: string[]; save_mb?: boolean; fmt_v?: number; encrypt_password?: string | null }> = liveData?.autobackup_schedules ?? {};
 
   // Helper: resolve a user ID to a display string
   const resolveUser = (id: string) => {
@@ -1238,20 +1368,63 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
     };
   };
 
+  // Helper: copy text to clipboard
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copyId = (id: string) => {
+    navigator.clipboard.writeText(id).catch(() => {});
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
+
+  // Helper: estimate save/restore duration based on server size
+  const estimateSaveTime = (g: GuildInfo | undefined) => {
+    if (!g) return null;
+    // Rough heuristic: ~2s base + 0.05s/member + 0.3s/channel + 0.2s/role
+    const secs = 2 + g.member_count * 0.05 + g.channel_count * 0.3 + g.role_count * 0.2;
+    if (secs < 60) return `~${Math.round(secs)}s`;
+    return `~${Math.floor(secs / 60)}m ${Math.round(secs % 60)}s`;
+  };
+  const estimateRestoreTime = (g: GuildInfo | undefined) => {
+    if (!g) return null;
+    // Restore is slower: role creation is rate-limited at ~3s/role + channel creation
+    const secs = 5 + g.role_count * 3.2 + g.channel_count * 0.8 + g.member_count * 0.02;
+    if (secs < 60) return `~${Math.round(secs)}s`;
+    return `~${Math.floor(secs / 60)}m ${Math.round(secs % 60)}s`;
+  };
+
+  // Helper: days since last backup for a server
+  const daysSinceBackup = (sid: string): number | null => {
+    const entries = backupInv[sid];
+    if (!entries?.length) return null;
+    const latest = entries.reduce((best, e) => (e.timestamp_iso && (!best || e.timestamp_iso > best) ? e.timestamp_iso : best), '');
+    if (!latest) return null;
+    return Math.floor((Date.now() - new Date(latest).getTime()) / 86400000);
+  };
+
+  // Export backup inventory as JSON
+  const exportInventory = () => {
+    const data = JSON.stringify({ exported_at: new Date().toISOString(), backup_inventory: backupInv }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'backup-inventory.json'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // All guilds the bot is in (live snapshot)
   const allGuilds = Object.values(guildSnap);
-  // Servers with backups — sourced from forum scan (backup_inventory), not backup_owners
+  // Servers with backups, sourced from forum scan (backup_inventory), not backup_owners
   const backupServerIds = Object.keys(backupInv);
 
   // Access list: owner row + managers + admins
   const OWNER_ID_STR = '1425423027335598090';
+  const seenIds = new Set<string>();
   const accessList = [
     { id: OWNER_ID_STR, role: 'Owner' as const },
     ...realManagers.filter(id => id !== OWNER_ID_STR).map(id => ({ id, role: 'Manager' as const })),
     ...realAdmins.filter(id => id !== OWNER_ID_STR).map(id => ({ id, role: 'Admin' as const })),
-  ];
+  ].filter(a => { const s = String(a.id); if (seenIds.has(s)) return false; seenIds.add(s); return true; });
 
-  const card = (content: JSX.Element, style?: React.CSSProperties) => (
+  const card = (content: React.ReactElement, style?: React.CSSProperties) => (
     <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 20, ...style }}>
       {content}
     </div>
@@ -1265,40 +1438,67 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
     </div>
   );
 
+  // Hash-based password verification against data.json's dashboard_password_hash
+  const storedHash: string | undefined = liveData?.secrets?.dashboard_password_hash;
+
+  const attemptLogin = async () => {
+    if (!pw || pwChecking) return;
+    setPwChecking(true);
+    try {
+      if (!storedHash) {
+        // No hash configured — show instructions
+        setPwError(true);
+        setPwChecking(false);
+        return;
+      }
+      const hashed = await hashPassword(pw);
+      if (hashed === storedHash) {
+        setAuthed(true);
+        setPwError(false);
+      } else {
+        setPwError(true);
+        setPw('');
+      }
+    } catch {
+      setPwError(true);
+      setPw('');
+    }
+    setPwChecking(false);
+  };
+
   if (!authed) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 20 }}>
       <div style={{ fontSize: 40 }}>🔐</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: theme.text }}>Admin Access</div>
-      <div style={{ fontSize: 13, color: theme.muted }}>Enter the admin password to continue</div>
+      {!storedHash
+        ? <div style={{ fontSize: 13, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 8, padding: '10px 16px', maxWidth: 380, textAlign: 'center' }}>
+            No password configured. Run <code style={{ color: '#FEE75C' }}>#$setdashpass &lt;password&gt;</code> in Discord to set one.
+          </div>
+        : <div style={{ fontSize: 13, color: theme.muted }}>Enter the admin password to continue</div>
+      }
       <div style={{ display: 'flex', gap: 10 }}>
         <input
           type="password"
           value={pw}
           placeholder="Password"
+          disabled={!storedHash || pwChecking}
           onChange={e => { setPw(e.target.value); setPwError(false); }}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwError(false); }
-              else { setPwError(true); setPw(''); }
-            }
-          }}
+          onKeyDown={e => { if (e.key === 'Enter') attemptLogin(); }}
           style={{
             padding: '9px 14px', borderRadius: 8, border: `1px solid ${pwError ? '#ED4245' : theme.border2}`,
             background: 'var(--input-bg)', color: theme.text, fontFamily: 'monospace',
-            fontSize: 14, outline: 'none', width: 200,
+            fontSize: 14, outline: 'none', width: 200, opacity: !storedHash ? 0.5 : 1,
           }}
         />
         <button
-          onClick={() => {
-            if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwError(false); }
-            else { setPwError(true); setPw(''); }
-          }}
-          style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+          onClick={attemptLogin}
+          disabled={!storedHash || pwChecking}
+          style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, cursor: (!storedHash || pwChecking) ? 'not-allowed' : 'pointer', fontSize: 13, opacity: (!storedHash || pwChecking) ? 0.6 : 1 }}
         >
-          Unlock
+          {pwChecking ? '…' : 'Unlock'}
         </button>
       </div>
-      {pwError && <div style={{ color: '#ED4245', fontSize: 12 }}>❌ Incorrect password</div>}
+      {pwError && storedHash && <div style={{ color: '#ED4245', fontSize: 12 }}>❌ Incorrect password</div>}
     </div>
   );
 
@@ -1365,7 +1565,9 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             <div style={{ fontWeight: 700, marginBottom: 12, color: theme.text }}>🌐 Guild Overview</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[...allGuilds].sort((a,b) => b.member_count - a.member_count).slice(0,6).map(g => {
-                const hasBackup = !!backupOwners[g.id];
+                const hasBackup = !!(backupInv[g.id]?.length);
+                const days = daysSinceBackup(g.id);
+                const stale = days !== null && days > 7;
                 return (
                   <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
                     {g.icon_url
@@ -1373,16 +1575,22 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(88,101,242,0.2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>?</div>
                     }
                     <span style={{ fontWeight: 700, color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
+                    <span
+                      onClick={() => copyId(g.id)}
+                      title="Copy server ID"
+                      style={{ color: copiedId === g.id ? 'var(--green)' : theme.muted, fontFamily: 'monospace', fontSize: 10, cursor: 'pointer', padding: '1px 4px', borderRadius: 3, background: 'rgba(88,101,242,0.07)', userSelect: 'none' }}
+                    >{copiedId === g.id ? '✓' : g.id}</span>
                     <span style={{ color: theme.muted }}>👥 {g.member_count.toLocaleString()}</span>
                     <span style={{ color: theme.muted }}>💬 {g.channel_count}</span>
                     {g.boost_level > 0 && <span style={{ color: '#EB459E' }}>✨ L{g.boost_level}</span>}
+                    {stale && <span style={{ fontSize: 10, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>⚠️ {days}d ago</span>}
                     <span style={{ color: hasBackup ? 'var(--green)' : theme.muted, fontSize: 10, padding: '1px 5px', borderRadius: 4, background: hasBackup ? 'rgba(87,242,135,0.1)' : 'transparent', border: `1px solid ${hasBackup ? 'rgba(87,242,135,0.3)' : 'transparent'}` }}>
                       {hasBackup ? '💾 backed up' : 'no backup'}
                     </span>
                   </div>
                 );
               })}
-              {allGuilds.length > 6 && <div style={{ fontSize: 11, color: theme.muted, paddingTop: 4 }}>+{allGuilds.length - 6} more — see Servers tab</div>}
+              {allGuilds.length > 6 && <div style={{ fontSize: 11, color: theme.muted, paddingTop: 4 }}>+{allGuilds.length - 6} more, see Servers tab</div>}
             </div>
           </>)}
 
@@ -1469,7 +1677,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               </div>
             </div>
 
-            {allGuilds.length === 0 && <div style={{ color: theme.muted, fontSize: 13 }}>No live guild data yet — hit Refresh or check back after bot restart.</div>}
+            {allGuilds.length === 0 && <div style={{ color: theme.muted, fontSize: 13 }}>No live guild data yet. Hit Refresh or check back after bot restart.</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[...allGuilds].sort((a, b) => {
                 if (serverSort === 'members_desc') return b.member_count - a.member_count;
@@ -1482,11 +1690,13 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 return 0;
               }).map(g => {
                 const isOpen = selectedServer === g.id;
-                const hasBackup = !!backupOwners[g.id];
+                const hasBackup = !!(backupInv[g.id]?.length);
                 const ownerInfo = resolveUser(g.owner_id);
                 const shared = sharedAccess[g.id] ?? [];
                 const isBlocked = blGuilds.includes(g.id);
                 const isWL = wlGuilds.includes(g.id);
+                const saveEst = estimateSaveTime(g);
+                const restoreEst = estimateRestoreTime(g);
                 return (
                   <div key={g.id} onClick={() => setSelectedServer(isOpen ? null : g.id)}
                     style={{ background: theme.surface2, border: `1px solid ${isOpen ? '#5865F2' : theme.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s' }}>
@@ -1502,13 +1712,19 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       {g.boost_level > 0 && <span style={{ fontSize: 11, color: '#EB459E' }}>✨ L{g.boost_level}</span>}
                       <span style={{ color: theme.muted, fontSize: 12 }}>👥 {g.member_count.toLocaleString()}</span>
                       <span style={{ fontSize: 10, color: hasBackup ? 'var(--green)' : theme.muted, padding: '1px 5px', borderRadius: 4, background: hasBackup ? 'rgba(87,242,135,0.1)' : 'transparent', border: `1px solid ${hasBackup ? 'rgba(87,242,135,0.25)' : 'transparent'}` }}>
-                        {hasBackup ? '💾' : '—'}
+                        {hasBackup ? '💾' : '--'}
                       </span>
                       <span style={{ color: theme.muted, fontSize: 11, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
                     </div>
                     {/* Expanded detail */}
                     {isOpen && (
                       <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${theme.border}` }}>
+                        {(saveEst || restoreEst) && (
+                          <div style={{ display: 'flex', gap: 16, padding: '8px 0 4px', fontSize: 11, color: theme.muted }}>
+                            {saveEst && <span>⏱ Est. save: <span style={{ color: '#5865F2', fontWeight: 600 }}>{saveEst}</span></span>}
+                            {restoreEst && <span>🔄 Est. restore: <span style={{ color: '#EB459E', fontWeight: 600 }}>{restoreEst}</span></span>}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, marginBottom: 10 }}>
                           {[
                             { label: 'Members',  value: g.member_count.toLocaleString() },
@@ -1540,11 +1756,13 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$info {g.id}</code>
-                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$save {g.id}</code>
-                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$backups {g.id}</code>
-                          <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>#$verifybackup {g.id}</code>
-                          <code style={{ color: theme.muted, fontSize: 10, alignSelf: 'center' }}>{g.id}</code>
+                          {['#$info', '#$save', '#$backups', '#$verifybackup'].map(cmd => (
+                            <code
+                              key={cmd}
+                              onClick={e => { e.stopPropagation(); copyId(`${cmd} ${g.id}`); }}
+                              style={{ background: copiedId === `${cmd} ${g.id}` ? 'rgba(87,242,135,0.15)' : 'rgba(88,101,242,0.1)', color: copiedId === `${cmd} ${g.id}` ? 'var(--green)' : '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer', userSelect: 'none' }}
+                            >{copiedId === `${cmd} ${g.id}` ? '✓ copied' : `${cmd} ${g.id}`}</code>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -1564,6 +1782,10 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                   return `\u{1F4BE} Backup Registry \u2014 ${backupServerIds.length} server${backupServerIds.length !== 1 ? 's' : ''}, ${totalBackups} backup${totalBackups !== 1 ? 's' : ''}`;
                 })()}
               </div>
+              <button
+                onClick={exportInventory}
+                style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.muted, fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+              >⬇ Export JSON</button>
             </div>
             {!liveData && <div style={{ color: theme.muted, fontSize: 13 }}>Waiting for data &mdash; hit Refresh.</div>}
             {liveData && backupServerIds.length === 0 && (
@@ -1577,8 +1799,12 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 const shared     = (sharedAccess[sid] ?? []).map(String);
                 const entries    = backupInv[sid] ?? [];
                 const isOpen     = selectedServer === sid;
+                const days       = daysSinceBackup(sid);
+                const stale      = days !== null && days > 7;
+                const saveEst    = estimateSaveTime(g);
+                const restoreEst = estimateRestoreTime(g);
                 return (
-                  <div key={sid} style={{ border: `1px solid ${isOpen ? '#5865F2' : theme.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s' }}>
+                  <div key={sid} style={{ border: `1px solid ${isOpen ? '#5865F2' : stale ? 'rgba(254,231,92,0.4)' : theme.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s' }}>
                     <div onClick={() => setSelectedServer(isOpen ? null : sid)}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: isOpen ? 'rgba(88,101,242,0.06)' : theme.surface2 }}>
                       {g?.icon_url
@@ -1589,7 +1815,11 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                         <div style={{ fontWeight: 700, color: theme.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {g?.name ?? <span style={{ color: theme.muted, fontStyle: 'italic' }}>Unknown server</span>}
                         </div>
-                        <div style={{ fontSize: 10, color: theme.muted, fontFamily: 'monospace' }}>{sid}</div>
+                        <span
+                          onClick={e => { e.stopPropagation(); copyId(sid); }}
+                          title="Copy server ID"
+                          style={{ fontSize: 10, color: copiedId === sid ? 'var(--green)' : theme.muted, fontFamily: 'monospace', cursor: 'pointer', userSelect: 'none' }}
+                        >{copiedId === sid ? '✓ copied' : sid}</span>
                       </div>
                       {ownerInfo && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, flexShrink: 0 }}>
@@ -1598,6 +1828,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                         </div>
                       )}
                       {g && <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>&#128101; {g.member_count.toLocaleString()}</span>}
+                      {stale && <span style={{ fontSize: 10, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>⚠️ {days}d ago</span>}
                       <span style={{ background: 'rgba(88,101,242,0.12)', color: '#5865F2', fontSize: 11, padding: '2px 7px', borderRadius: 4, flexShrink: 0, fontWeight: 700 }}>
                         {entries.length} backup{entries.length !== 1 ? 's' : ''}
                       </span>
@@ -1610,21 +1841,82 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                     </div>
                     {isOpen && (
                       <div style={{ borderTop: `1px solid ${theme.border}` }}>
+                        {/* Estimated times */}
+                        {(saveEst || restoreEst) && (
+                          <div style={{ display: 'flex', gap: 16, padding: '8px 14px', background: 'rgba(88,101,242,0.04)', fontSize: 11, color: theme.muted, borderBottom: `1px solid ${theme.border}` }}>
+                            {saveEst && <span>⏱ Est. save: <span style={{ color: '#5865F2', fontWeight: 600 }}>{saveEst}</span></span>}
+                            {restoreEst && <span>🔄 Est. restore: <span style={{ color: '#EB459E', fontWeight: 600 }}>{restoreEst}</span></span>}
+                            {g && <span style={{ color: theme.muted }}>({g.member_count.toLocaleString()} members, {g.role_count} roles, {g.channel_count} channels)</span>}
+                          </div>
+                        )}
                         {entries.map((b, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: theme.surface }}>
                             <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0, minWidth: 160 }}>{b.timestamp_str}</span>
                             <code style={{ color: theme.muted, fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.thread_name}</code>
                             <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
-                              {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '—'}
+                              {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '--'}
                             </span>
                             {b.encrypted && (
                               <span style={{ background: 'rgba(254,231,92,0.15)', color: '#FEE75C', fontSize: 10, padding: '1px 5px', borderRadius: 4, border: '1px solid rgba(254,231,92,0.3)', flexShrink: 0 }}>&#128274; ENC</span>
                             )}
                             <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>#{entries.length - i}</span>
+                            <button
+                              onClick={e => { e.stopPropagation(); copyId(`#$delbackup ${sid} ${entries.length - i}`); }}
+                              title="Copy delete command"
+                              style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(237,66,69,0.3)`, background: 'rgba(237,66,69,0.08)', color: '#ED4245', fontSize: 10, cursor: 'pointer', flexShrink: 0 }}
+                            >{copiedId === `#$delbackup ${sid} ${entries.length - i}` ? '✓ copied' : '🗑 delete'}</button>
                           </div>
                         ))}
                       </div>
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
+          {card(<>
+            <div style={{ fontWeight: 700, marginBottom: 14, color: theme.text }}>⏰ Autobackup Schedules ({Object.keys(autobackupSchedules).length})</div>
+            {Object.keys(autobackupSchedules).length === 0 && (
+              <div style={{ color: theme.muted, fontSize: 13 }}>No autobackup schedules set. Use <code style={{ color: '#5865F2' }}>#$autobackup {'<server_id> <hours>'}</code> to create one.</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Object.entries(autobackupSchedules).map(([sid, sched]) => {
+                const g = guildSnap[sid];
+                const intervalSecs = sched.interval_hours * 3600;
+                const nowSecs = Date.now() / 1000;
+                const midnight = nowSecs - (nowSecs % 86400);
+                const slotsPassed = Math.floor((nowSecs - midnight) / intervalSecs);
+                const nextRun = midnight + (slotsPassed + 1) * intervalSecs;
+                const waitSecs = Math.max(0, nextRun - nowSecs);
+                const waitStr = waitSecs < 60 ? `${Math.round(waitSecs)}s`
+                  : waitSecs < 3600 ? `${Math.floor(waitSecs/60)}m ${Math.round(waitSecs%60)}s`
+                  : `${Math.floor(waitSecs/3600)}h ${Math.floor((waitSecs%3600)/60)}m`;
+                const lastTs = sched.last_run_ts;
+                const fmtNames: Record<number,string> = {1:'V1',2:'V2',3:'V3',4:'V4 gzip',5:'V5 lzma'};
+                return (
+                  <div key={sid} style={{ background: theme.surface2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {g?.icon_url
+                      ? <img src={g.icon_url} style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                      : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(235,69,158,0.15)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>⏰</div>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: theme.text, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {g?.name ?? <span style={{ color: theme.muted, fontStyle: 'italic' }}>Unknown server</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>{sid}</div>
+                      <div style={{ fontSize: 11, color: theme.muted, marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <span>last: {lastTs ? new Date(lastTs * 1000).toUTCString().replace(' GMT','') : 'never'}</span>
+                        {sched.ch_bl && sched.ch_bl.length > 0 && <span>blacklist: {sched.ch_bl.join(', ')}</span>}
+                        {sched.encrypt_password && <span style={{ color: '#FEE75C' }}>🔒 encrypted</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                      <span style={{ background: 'rgba(235,69,158,0.12)', color: '#EB459E', fontSize: 12, padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                        every {sched.interval_hours}h
+                      </span>
+                      <span style={{ fontSize: 11, color: theme.muted }}>next in {waitStr}</span>
+                      <span style={{ fontSize: 10, color: theme.muted }}>{fmtNames[sched.fmt_v ?? 5]} • members: {sched.save_mb === false ? 'no' : 'yes'}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -1748,7 +2040,7 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
   const playFrom = (idx: number, snap: number) => {
     const convo = TRY_IT_EXAMPLES[snap]?.conversation;
     if (!convo || idx >= convo.length) { setStep(convo?.length ?? 0); return; }
-    if (selectedRef.current !== snap) return; // aborted — user switched
+    if (selectedRef.current !== snap) return; // aborted, user switched
     setStep(idx);
     setVisibleTurns(prev => [...prev, idx]);
     const turn = convo[idx];
@@ -1783,7 +2075,7 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
 
       <div style={{ background: '#0d0f12', border: '1px solid rgba(88,101,242,0.25)', borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ padding: '10px 16px', background: 'rgba(88,101,242,0.1)', borderBottom: '1px solid rgba(88,101,242,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#72767d' }}>Discord — #bot-commands</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#72767d' }}>Discord, #bot-commands</span>
           <button onClick={run} style={{
             padding: '5px 14px', borderRadius: 6, border: 'none',
             background: isRunning ? 'rgba(88,101,242,0.3)' : '#5865F2',
@@ -1859,6 +2151,7 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [faqSearch, setFaqSearch] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openService, setOpenService] = useState<number | null>(null);
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -1921,7 +2214,7 @@ export default function App() {
 
   const downtimeLog: DowntimeEntry[] = liveData?.downtime_log ?? [];
   const online: boolean | null = liveData
-    ? isBotOnline(liveData.heartbeat)
+    ? isBotOnline(liveData.heartbeat, lastSynced)
     : null;
   const maintenance = liveData?.maintenance ?? false;
   const pingMs = liveData?.ping_ms ?? null;
@@ -2100,7 +2393,7 @@ export default function App() {
           --border: ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)'};
           --border2: ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.14)'};
           --input-bg: ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'};
-          --green: ${darkMode ? 'var(--green)' : '#1a8a3c'};
+          --green: ${darkMode ? '#57F287' : '#1a8a3c'};
         }
       `}</style>
 
@@ -2354,7 +2647,7 @@ export default function App() {
           }}
         >
           {STATS.map((s, i) => (
-            <StatCard key={i} {...s} delay={i} started={statsStarted} />
+            <StatCard key={i} label={s.label} value={s.value} suffix={s.suffix} delay={i} started={statsStarted} />
           ))}
         </div>
 
@@ -2373,7 +2666,7 @@ export default function App() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => { setActiveTab(t.id); if (t.id === 'uptime') fetchData(); }}
               style={{
                 flex: 1,
                 padding: '8px 6px',
@@ -2641,6 +2934,10 @@ export default function App() {
                       marginLeft: 'auto',
                       textAlign: 'right',
                       flexShrink: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                      gap: 8,
                     }}
                   >
                     <div
@@ -2665,509 +2962,215 @@ export default function App() {
                     >
                       days clear
                     </div>
+                    {liveData?.heartbeat?.last_seen && (() => {
+                      const ms = Date.now() - new Date(liveData.heartbeat.last_seen).getTime();
+                      const s = Math.floor(ms / 1000);
+                      const rel = s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s/60)}m ago` : `${Math.floor(s/3600)}h ago`;
+                      return (
+                        <div style={{ fontSize: 10, color: 'var(--faint)', fontFamily: 'monospace', marginTop: 4 }}>
+                          last ping {rel}
+                        </div>
+                      );
+                    })()}
+                    <button
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      style={{
+                        marginTop: 6,
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                        color: refreshing ? 'var(--faint)' : 'var(--muted)',
+                        fontSize: 11,
+                        cursor: refreshing ? 'not-allowed' : 'pointer',
+                        fontFamily: 'monospace',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>↻</span>
+                      {refreshing ? 'checking...' : 'check again'}
+                    </button>
                   </div>
                 );
               })()}
             </div>
 
-            <div
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                padding: 20,
-              }}
-            >
-              <h3
-                style={{
-                  margin: '0 0 14px',
-                  fontSize: 13,
-                  textTransform: 'uppercase',
-                  letterSpacing: 1.5,
-                  color: 'var(--muted)',
-                  fontFamily: 'monospace',
-                }}
-              >
-                Services
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {statusServices.map((s, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      background: 'var(--surface)',
-                      borderRadius: 8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                        color: 'var(--t)',
-                      }}
-                    >
-                      {s.name}
-                    </span>
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 10 }}
-                    >
-                      {s.ping && (
-                        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                          {s.ping}
-                        </span>
-                      )}
+            {/* Services as accordions */}
+            {statusServices.map((s, si) => {
+              const isOpen = openService === si;
+              const isMainBot = si === 0 || si === 1; // Main Bot + Helper Bots share the same script
+              const log = isMainBot ? downtimeLog : [];
+              const pct24  = isMainBot ? calcUptimePct(log, 1)            : 100;
+              const pct7   = isMainBot ? calcUptimePct(log, 7)            : 100;
+              const pctAll = isMainBot ? calcUptimePct(log, DAYS_MONITORED): 100;
+              const getBorderColor = (pct: number) =>
+                pct >= 99.9
+                  ? (darkMode ? 'rgba(87,242,135,0.35)' : 'rgba(26,138,60,0.35)')
+                  : pct >= 95 ? 'rgba(254,231,92,0.35)' : 'rgba(237,66,69,0.35)';
+              const getPctColor = (pct: number) =>
+                pct >= 99.9 ? 'var(--green)' : pct >= 95 ? '#FEE75C' : '#ED4245';
+              return (
+                <div key={si} style={{ background: 'var(--surface)', border: `1px solid ${isOpen ? s.color + '55' : 'var(--border)'}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+                  {/* Row */}
+                  <div onClick={() => setOpenService(isOpen ? null : si)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', userSelect: 'none', background: isOpen ? `${s.color}0d` : 'transparent', transition: 'background 0.2s' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--t)' }}>{s.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {s.ping && <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{s.ping}</span>}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <PingDot color={s.color} size={7} />
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: s.color,
-                            fontFamily: 'monospace',
-                          }}
-                        >
-                          {s.status}
-                        </span>
+                        <span style={{ fontSize: 12, color: s.color, fontFamily: 'monospace' }}>{s.status}</span>
                       </div>
+                      <span style={{ color: 'var(--muted)', fontSize: 11, display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }}>&#9658;</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                padding: 20,
-              }}
-            >
-              <h3
-                style={{
-                  margin: '0 0 14px',
-                  fontSize: 13,
-                  textTransform: 'uppercase',
-                  letterSpacing: 1.5,
-                  color: 'var(--muted)',
-                  fontFamily: 'monospace',
-                }}
-              >
-                Uptime Since Feb 20
-              </h3>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3,1fr)',
-                  gap: 10,
-                  marginBottom: 20,
-                }}
-              >
-                {[
-                  {
-                    label: 'Last 24h',
-                    pct: `${calcUptimePct(downtimeLog, 1)}%`,
-                  },
-                  {
-                    label: 'Last 7d',
-                    pct: `${calcUptimePct(downtimeLog, 7)}%`,
-                  },
-                  {
-                    label: `All ${DAYS_MONITORED}d`,
-                    pct: `${calcUptimePct(downtimeLog, DAYS_MONITORED)}%`,
-                  },
-                ].map((u, i) => {
-                  const numPct = parseFloat(u.pct);
-                  const pctColor =
-                    numPct >= 99.9
-                      ? 'var(--green)'
-                      : numPct >= 95
-                      ? '#FEE75C'
-                      : '#ED4245';
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        textAlign: 'center',
-                        padding: '14px 10px',
-                        background: 'var(--surface)',
-                        borderRadius: 8,
-                        border: `1px solid ${pctColor}33`,
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontSize: 24,
-                          fontWeight: 700,
-                          color: pctColor,
-                        }}
-                      >
-                        {u.pct}
-                      </div>
-                      <div
-                        style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}
-                      >
-                        {u.label}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: 'var(--muted)',
-                  marginBottom: 6,
-                  fontFamily: 'monospace',
-                }}
-              >
-                Since Feb 20 ({DAYS_MONITORED} days)
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 2,
-                  alignItems: 'flex-end',
-                  position: 'relative',
-                }}
-              >
-                {Array.from({ length: DAYS_MONITORED }).map((_, i) => {
-                  const dayStart = new Date(UPTIME_START);
-                  dayStart.setDate(dayStart.getDate() + i);
-                  dayStart.setHours(0, 0, 0, 0);
-                  const dayEnd = new Date(dayStart);
-                  dayEnd.setDate(dayEnd.getDate() + 1);
-                  const barBg = getDayGradient(
-                    dayStart.getTime(),
-                    dayEnd.getTime(),
-                    downtimeLog
-                  );
-                  const dateStr = dayStart.toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                  });
-                  const isPreLaunch = dayStart < LAUNCH_DATE;
-                  const dayIncidents = downtimeLog.filter((e) => {
-                    const t = new Date(e.server_went_down_approx).getTime();
-                    const end = t + (e.duration_seconds || 0) * 1000;
-                    return t < dayEnd.getTime() && end > dayStart.getTime();
-                  });
-                  return (
-                    <div
-                      key={i}
-                      style={{ flex: 1, minWidth: 4, position: 'relative' }}
-                      onMouseEnter={(e) => {
-                        const tip = (
-                          e.currentTarget as HTMLDivElement
-                        ).querySelector('.bar-tip') as HTMLElement | null;
-                        if (tip) tip.style.display = 'block';
-                      }}
-                      onMouseLeave={(e) => {
-                        const tip = (
-                          e.currentTarget as HTMLDivElement
-                        ).querySelector('.bar-tip') as HTMLElement | null;
-                        if (tip) tip.style.display = 'none';
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: 24,
-                          borderRadius: 2,
-                          background: barBg,
-                        }}
-                      />
-                      <div
-                        className="bar-tip"
-                        style={{
-                          display: 'none',
-                          position: 'absolute',
-                          bottom: 30,
-                          ...(i < 3
-                            ? { left: 0 }
-                            : i > DAYS_MONITORED - 4
-                            ? { right: 0 }
-                            : { left: '50%', transform: 'translateX(-50%)' }),
-                          background: '#1e2030',
-                          border: `1px solid ${
-                            dayIncidents.length > 0
-                              ? 'rgba(237,66,69,0.4)'
-                              : 'rgba(87,242,135,0.3)'
-                          }`,
-                          borderRadius: 8,
-                          padding: '8px 12px',
-                          minWidth: 180,
-                          maxWidth: 260,
-                          zIndex: 100,
-                          pointerEvents: 'none',
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                            color: 'var(--muted)',
-                            marginBottom: dayIncidents.length > 0 ? 6 : 0,
-                          }}
-                        >
-                          {dateStr}
-                          {isPreLaunch ? ' · pre-launch' : ''}
-                        </div>
-                        {dayIncidents.length === 0 ? (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: 'var(--green)',
-                              fontFamily: 'monospace',
-                            }}
-                          >
-                            ✓ Operational
+                  {/* Expanded uptime */}
+                  {isOpen && (
+                    <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--border)' }}>
+                      {/* Pct cards */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, paddingTop: 14, marginBottom: 14 }}>
+                        {[
+                          { label: 'Last 24h', pct: pct24  },
+                          { label: 'Last 7d',  pct: pct7   },
+                          { label: `All ${DAYS_MONITORED}d`, pct: pctAll },
+                        ].map((u, i) => (
+                          <div key={i} style={{ textAlign: 'center', padding: '10px 8px', background: 'var(--surface2)', borderRadius: 8, border: `1px solid ${getBorderColor(u.pct)}` }}>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: getPctColor(u.pct) }}>{u.pct}%</div>
+                            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>{u.label}</div>
                           </div>
-                        ) : (
-                          dayIncidents.map((inc, j) => {
-                            const tz =
-                              Intl.DateTimeFormat().resolvedOptions().timeZone;
-                            const fmtOpts: Intl.DateTimeFormatOptions = {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: tz,
-                            };
-                            const incDown = new Date(
-                              inc.server_went_down_approx
-                            ).getTime();
-                            const incUp = inc.bot_came_back_up
-                              ? new Date(inc.bot_came_back_up).getTime()
-                              : incDown + (inc.duration_seconds || 0) * 1000;
-                            const segStart = Math.max(
-                              incDown,
-                              dayStart.getTime()
-                            );
-                            const segEnd = Math.min(incUp, dayEnd.getTime());
-                            const isAllDay =
-                              segStart <= dayStart.getTime() &&
-                              segEnd >= dayEnd.getTime() - 1000;
-                            const startsBeforeDay =
-                              incDown < dayStart.getTime();
-                            const endsAfterDay =
-                              incUp > dayEnd.getTime() - 1000;
-                            const segSecs = Math.round(
-                              (segEnd - segStart) / 1000
-                            );
-                            const segH = Math.floor(segSecs / 3600);
-                            const segM = Math.floor((segSecs % 3600) / 60);
-                            const segDurStr =
-                              segH > 0 ? `${segH}h ${segM}m` : `${segM}m`;
-                            const fromStr = new Date(
-                              segStart
-                            ).toLocaleTimeString([], fmtOpts);
-                            const toStr = new Date(segEnd).toLocaleTimeString(
-                              [],
-                              fmtOpts
-                            );
-                            const tzShort =
-                              new Date(segStart)
-                                .toLocaleDateString([], {
-                                  timeZoneName: 'short',
-                                  timeZone: tz,
-                                })
-                                .split(', ')[1] || tz;
-                            return (
-                              <div
-                                key={j}
-                                style={{
-                                  borderTop:
-                                    j > 0
-                                      ? '1px solid var(--border)'
-                                      : 'none',
-                                  paddingTop: j > 0 ? 6 : 0,
-                                  marginTop: j > 0 ? 6 : 0,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: 8,
-                                    marginBottom: 4,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      fontFamily: 'monospace',
-                                      fontSize: 11,
-                                      color: '#ED4245',
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    #{inc.id}
-                                  </span>
-                                  <span
-                                    style={{
-                                      fontFamily: 'monospace',
-                                      fontSize: 10,
-                                      color: 'var(--faint)',
-                                    }}
-                                  >
-                                    {tzShort}
-                                  </span>
-                                </div>
-                                {isAllDay ? (
-                                  <div
-                                    style={{
-                                      fontFamily: 'monospace',
-                                      fontSize: 11,
-                                      color: '#ED4245',
-                                      marginBottom: 3,
-                                    }}
-                                  >
-                                    All day
-                                  </div>
-                                ) : (
-                                  <div
-                                    style={{
-                                      fontFamily: 'monospace',
-                                      fontSize: 11,
-                                      color: 'var(--t)',
-                                      marginBottom: 3,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        color: startsBeforeDay
-                                          ? '#72767d'
-                                          : '#ED4245',
-                                      }}
-                                    >
-                                      {startsBeforeDay ? '←' : fromStr}
-                                    </span>
-                                    <span style={{ color: 'var(--faint)' }}>
-                                      {' '}
-                                      →{' '}
-                                    </span>
-                                    <span
-                                      style={{
-                                        color: endsAfterDay
-                                          ? '#72767d'
-                                          : 'var(--green)',
-                                      }}
-                                    >
-                                      {endsAfterDay ? '→' : toStr}
-                                    </span>
-                                    <span style={{ color: 'var(--muted)' }}>
-                                      {' '}
-                                      ({segDurStr} this day)
-                                    </span>
-                                  </div>
-                                )}
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    color: 'var(--muted)',
-                                    lineHeight: 1.4,
-                                  }}
-                                >
-                                  {inc.reason}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
+                        ))}
                       </div>
+                      {/* Day bars */}
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 5, fontFamily: 'monospace' }}>
+                        Since Feb 20 ({DAYS_MONITORED} days)
+                      </div>
+                      <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
+                        {Array.from({ length: DAYS_MONITORED }).map((_, i) => {
+                          const dayStart = new Date(UPTIME_START);
+                          dayStart.setDate(dayStart.getDate() + i);
+                          dayStart.setHours(0, 0, 0, 0);
+                          const dayEnd = new Date(dayStart);
+                          dayEnd.setDate(dayEnd.getDate() + 1);
+                          const barBg = getDayGradient(dayStart.getTime(), dayEnd.getTime(), log);
+                          const dateStr = dayStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                          const isPreLaunch = dayStart < LAUNCH_DATE;
+                          const dayIncidents = log.filter(e => {
+                            const t = new Date(e.server_went_down_approx).getTime();
+                            const end = t + (e.duration_seconds || 0) * 1000;
+                            return t < dayEnd.getTime() && end > dayStart.getTime();
+                          });
+                          return (
+                            <div key={i} style={{ flex: 1, minWidth: 4, position: 'relative' }}
+                              onMouseEnter={e => { const tip = (e.currentTarget as HTMLDivElement).querySelector('.bar-tip') as HTMLElement | null; if (tip) tip.style.display = 'block'; }}
+                              onMouseLeave={e => { const tip = (e.currentTarget as HTMLDivElement).querySelector('.bar-tip') as HTMLElement | null; if (tip) tip.style.display = 'none'; }}>
+                              <div style={{ height: 24, borderRadius: 2, background: barBg }} />
+                              <div className="bar-tip" style={{
+                                display: 'none', position: 'absolute', bottom: 30,
+                                ...(i < 3 ? { left: 0 } : i > DAYS_MONITORED - 4 ? { right: 0 } : { left: '50%', transform: 'translateX(-50%)' }),
+                                background: darkMode ? '#1e2030' : '#ffffff',
+                                border: `1px solid ${dayIncidents.length > 0 ? 'rgba(237,66,69,0.4)' : darkMode ? 'rgba(87,242,135,0.3)' : 'rgba(26,138,60,0.3)'}`,
+                                borderRadius: 8, padding: '8px 12px', minWidth: 160, maxWidth: 240, zIndex: 100, pointerEvents: 'none',
+                                boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)',
+                              }}>
+                                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--muted)', marginBottom: dayIncidents.length > 0 ? 5 : 0 }}>
+                                  {dateStr}{isPreLaunch ? ' · pre-launch' : ''}
+                                </div>
+                                {dayIncidents.length === 0
+                                  ? <div style={{ fontSize: 12, color: 'var(--green)', fontFamily: 'monospace' }}>&#10003; Operational</div>
+                                  : dayIncidents.map((inc, j) => {
+                                      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                                      const fmtOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', timeZone: tz };
+                                      const tzShort = new Date(dayStart).toLocaleDateString([], { timeZoneName: 'short', timeZone: tz }).split(', ')[1] || tz;
+                                      const incDown = new Date(inc.server_went_down_approx).getTime();
+                                      const incUp   = inc.bot_came_back_up ? new Date(inc.bot_came_back_up).getTime() : incDown + (inc.duration_seconds || 0) * 1000;
+                                      const segStart = Math.max(incDown, dayStart.getTime());
+                                      const segEnd   = Math.min(incUp, dayEnd.getTime());
+                                      const segSecs  = Math.round((segEnd - segStart) / 1000);
+                                      const segH = Math.floor(segSecs / 3600);
+                                      const segM = Math.floor((segSecs % 3600) / 60);
+                                      const fromStr  = new Date(segStart).toLocaleTimeString([], fmtOpts);
+                                      const toStr    = new Date(segEnd).toLocaleTimeString([], fmtOpts);
+                                      const startsBeforeDay = incDown < dayStart.getTime();
+                                      const endsAfterDay    = incUp > dayEnd.getTime() - 1000;
+                                      const isAllDay = segStart <= dayStart.getTime() && segEnd >= dayEnd.getTime() - 1000;
+                                      return (
+                                        <div key={j} style={{ borderTop: j > 0 ? '1px solid var(--border)' : 'none', paddingTop: j > 0 ? 5 : 0, marginTop: j > 0 ? 5 : 0 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 3 }}>
+                                            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#ED4245', fontWeight: 700 }}>#{inc.id}</span>
+                                            <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--faint)' }}>{tzShort}</span>
+                                          </div>
+                                          {isAllDay
+                                            ? <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#ED4245', marginBottom: 2 }}>All day</div>
+                                            : <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--t)', marginBottom: 2 }}>
+                                                <span style={{ color: startsBeforeDay ? '#72767d' : '#ED4245' }}>{startsBeforeDay ? '←' : fromStr}</span>
+                                                <span style={{ color: 'var(--faint)' }}> → </span>
+                                                <span style={{ color: endsAfterDay ? '#72767d' : 'var(--green)' }}>{endsAfterDay ? '→' : toStr}</span>
+                                                <span style={{ color: 'var(--muted)' }}> ({segH > 0 ? `${segH}h ${segM}m` : `${segM}m`} this day)</span>
+                                              </div>
+                                          }
+                                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{inc.reason}</div>
+                                        </div>
+                                      );
+                                    })
+                                }
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--faint)', fontFamily: 'monospace' }}>
+                        <span>Feb 20</span>
+                        <span style={{ color: '#5865F2' }}>Mar 1 launch</span>
+                        <span>Today</span>
+                      </div>
+                      {/* Incident log inline (main bot only) */}
+                      {si === 0 && downtimeLog.length > 0 && (
+                        <div style={{ marginTop: 14 }}>
+                          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 8 }}>
+                            Incident History ({downtimeLog.length})
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {[...downtimeLog].reverse().map(entry => (
+                              <div key={entry.id} style={{ padding: '8px 12px', background: 'rgba(237,66,69,0.04)', border: '1px solid rgba(237,66,69,0.15)', borderRadius: 8 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                                  <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#ED4245' }}>#{entry.id} · {entry.duration_human}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: 'monospace' }}>
+                                    {new Date(entry.server_went_down_approx).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{entry.reason}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginTop: 4,
-                  fontSize: 10,
-                  color: 'var(--faint)',
-                  fontFamily: 'monospace',
-                }}
-              >
-                <span>Feb 20</span>
-                <span style={{ color: '#5865F2' }}>Mar 1 launch</span>
-                <span>Today</span>
-              </div>
-            </div>
+                  )}
+                </div>
+              );
+            })}
 
+            {/* Standalone incident history at the bottom */}
             {downtimeLog.length > 0 && (
-              <div
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  padding: 20,
-                }}
-              >
-                <h3
-                  style={{
-                    margin: '0 0 14px',
-                    fontSize: 13,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1.5,
-                    color: 'var(--muted)',
-                    fontFamily: 'monospace',
-                  }}
-                >
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--muted)', fontFamily: 'monospace' }}>
                   Incident History ({downtimeLog.length})
                 </h3>
-                <div
-                  style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
-                >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[...downtimeLog].reverse().map((entry) => (
-                    <div
-                      key={entry.id}
-                      style={{
-                        padding: '10px 14px',
-                        background: 'rgba(237,66,69,0.04)',
-                        border: '1px solid rgba(237,66,69,0.15)',
-                        borderRadius: 8,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            color: '#ED4245',
-                          }}
-                        >
+                    <div key={entry.id} style={{ padding: '10px 14px', background: 'rgba(237,66,69,0.04)', border: '1px solid rgba(237,66,69,0.15)', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#ED4245' }}>
                           #{entry.id} · {entry.duration_human}
                         </span>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: 'var(--faint)',
-                            fontFamily: 'monospace',
-                          }}
-                        >
-                          {new Date(
-                            entry.server_went_down_approx
-                          ).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
+                        <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: 'monospace' }}>
+                          {new Date(entry.server_went_down_approx).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        {entry.reason}
-                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{entry.reason}</div>
                     </div>
                   ))}
                 </div>
