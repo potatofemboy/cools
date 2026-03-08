@@ -502,7 +502,7 @@ const FAQ: FaqEntry[] = [
   { q: 'Can I load someone else\'s backup?', a: 'No. You can only load backups registered to your own server. The bot tracks backup ownership and will reject any attempt to load a backup you did not create. You can however be granted shared access via #$sharebackup.' },
   { q: 'Can I restore a backup onto a different server than it was taken from?', a: 'Yes. #$load <src_id> <tgt_id> lets you restore a backup from any server you own onto any other server you own.' },
   { q: 'What happens if the bot goes offline mid-restore?', a: 'The restore may be incomplete. Re-run #$load once the bot is back online. Use #$verifybackup first to confirm the backup file is intact.' },
-  { q: 'How long does a restore take?', a: 'Depends on server size. Small servers finish in under a minute. Large servers with hundreds of channels and thousands of members can take several minutes. The bot uses 5 helper instances in parallel to speed up the process.' },
+  { q: 'How long does a restore take?', a: 'Typically 3–6 minutes depending on server size. Role and channel creation is rate-limited by Discord, which is the main bottleneck. The bot uses 5 helper instances in parallel to speed up the process where possible.' },
   { q: 'Will restoring re-invite my old members?', a: 'No. Member data such as nicknames and role assignments is restored, but the bot cannot re-invite members who left the server.' },
   { q: 'Will restoring re-add my old bots?', a: 'No. Third-party bots are not included in the backup. You will need to re-invite them manually.' },
   { q: 'Can I do a partial restore, like only channels?', a: 'No. The restore is all-or-nothing. It rebuilds the full server structure from the backup.' },
@@ -882,7 +882,7 @@ const FAQ: FaqEntry[] = [
   { q: 'What does the Backups view in the admin panel show?', a: 'It lists all servers with stored backups, showing backup count, total size, member count, staleness warnings, and expandable entries for each backup.' },
   { q: 'What does the Access Control view in the admin panel show?', a: 'It shows all current admins, managers, whitelisted servers, blocked servers, whitelisted users, and blocked users with their IDs.' },
   { q: 'What is the \'stale\' warning in the admin panel?', a: 'A server is marked stale if it has not been backed up in more than 7 days. It shows a yellow warning badge as a reminder to run a fresh backup.' },
-  { q: 'What does the estimated save time in the admin panel mean?', a: 'It is a rough estimate of how long a #$save would take for that server based on its member count, channel count, and role count.' },
+  { q: 'What does the estimated save time in the admin panel mean?', a: 'It is a rough range for how long a #$save would take. The lower end assumes no message capture; the upper end assumes message history capture is enabled. Message capture is the biggest variable — a server with many captured channels can take 2x longer than one without.' },
   { q: 'What does the estimated restore time in the admin panel mean?', a: 'It is a rough estimate of how long a #$load would take for that server based on the same factors.' },
   { q: 'What does the latest badge mean on a backup entry?', a: 'The green \'latest\' badge marks the most recent backup for a server so you can quickly identify which one to restore.' },
   { q: 'What does clicking copy del cmd do in the admin panel?', a: 'It copies the exact #$delbackup command for that backup to your clipboard so you can paste it directly into a DM with the bot.' },
@@ -953,7 +953,7 @@ const PUBLIC_FAQ: FaqEntry[] = [
   },
   {
     q: 'How long does a backup take?',
-    a: 'Most servers back up in under a minute. Large servers with thousands of members or hundreds of channels may take a few minutes. Restores take slightly longer.',
+    a: 'Most servers take 2–5 minutes to back up. The base overhead (roles, channels, emojis, webhooks, etc.) is around 2 minutes regardless of size. Message history capture, if enabled, can add another 1–3 minutes depending on how many channels and messages are captured. Restores take slightly longer.',
   },
 ];
 
@@ -1619,27 +1619,32 @@ const TRY_IT_EXAMPLES = [
       { from: 'bot', lines: [
         '📦 Configuring backup of **Neon Lounge**',
         '',
-        '**Step 1/5: Channel/category blacklist**',
+        '**Step 1/6: Channel/category blacklist**',
         'Enter comma-separated channel/category names to skip, or reply `skip` for none:',
       ]},
       { from: 'user', text: 'skip' },
       { from: 'bot', lines: [
-        '**Step 2/5: Save member data?**',
+        '**Step 2/6: Save member data?**',
         'Reply `yes` to save members or `no` to skip.',
       ]},
       { from: 'user', text: 'yes' },
       { from: 'bot', lines: [
-        '**Step 3/5: Member filter**',
+        '**Step 3/6: Member filter**',
         'Reply `all`, `whitelist <ids>`, or `blacklist <ids>`.',
       ]},
       { from: 'user', text: 'all' },
       { from: 'bot', lines: [
-        '**Step 4/5: Backup format**',
+        '**Step 4/6: Backup format**',
         'Reply `1`–`5` (default: 5 = lzma, smallest).',
       ]},
       { from: 'user', text: '5' },
       { from: 'bot', lines: [
-        '**Step 5/5: Message capture**',
+        '**Step 5/6: Encryption**',
+        'Reply with a password to encrypt the backup, or `skip` to leave it unencrypted.',
+      ]},
+      { from: 'user', text: 'skip' },
+      { from: 'bot', lines: [
+        '**Step 6/6: Message capture**',
         'Reply `c <channel_id>` to capture a channel, or `done` to skip.',
       ]},
       { from: 'user', text: 'done' },
@@ -1756,11 +1761,17 @@ const TRY_IT_EXAMPLES = [
         '📦 **3 backup(s)** found for **Neon Lounge**. Reply with a number to pick one:',
         '',
         '  **1.** `2026-03-06 14:03:55 UTC`  •  874.2 KB  ← newest',
-        '  **2.** `2026-03-05 09:22:11 UTC`  •  871.0 KB',
+        '  **2.** `2026-03-05 09:22:11 UTC`  •  871.0 KB  🔒 encrypted',
         '  **3.** `2026-03-04 11:51:48 UTC`  •  868.5 KB',
       ]},
-      { from: 'user', text: '1' },
+      { from: 'user', text: '2' },
       { from: 'bot', lines: [
+        '🔒 This backup is encrypted. Reply with the decryption password, or `cancel` to abort.',
+      ]},
+      { from: 'user', text: 'mysecretpassword' },
+      { from: 'bot', lines: [
+        '✅ Password accepted.',
+        '',
         '⚠️  This will **delete all existing channels and roles** on **Empty Server** and replace them.',
         'Reply `confirm` to continue or anything else to cancel.',
       ]},
@@ -1790,27 +1801,32 @@ const TRY_IT_EXAMPLES = [
       { from: 'bot', lines: [
         '📦 **Save All** - refreshing backups for 3 server(s) with existing backups.',
         '',
-        '**Step 1/5: Channel/category blacklist**',
+        '**Step 1/6: Channel/category blacklist**',
         'Enter comma-separated channel/category names to skip, or reply `skip` for none:',
       ]},
       { from: 'user', text: 'skip' },
       { from: 'bot', lines: [
-        '**Step 2/5: Save member data?**',
+        '**Step 2/6: Save member data?**',
         'Reply `yes` to save members or `no` to skip.',
       ]},
       { from: 'user', text: 'yes' },
       { from: 'bot', lines: [
-        '**Step 3/5: Member filter**',
+        '**Step 3/6: Member filter**',
         'Reply `all`, `whitelist <ids>`, or `blacklist <ids>`.',
       ]},
       { from: 'user', text: 'all' },
       { from: 'bot', lines: [
-        '**Step 4/5: Backup format**',
+        '**Step 4/6: Backup format**',
         'Reply `1`-`5` (default: 5 = lzma, smallest).',
       ]},
       { from: 'user', text: '5' },
       { from: 'bot', lines: [
-        '**Step 5/5: Message capture**',
+        '**Step 5/6: Encryption**',
+        'Reply with a password to encrypt the backup, or `skip` to leave it unencrypted.',
+      ]},
+      { from: 'user', text: 'skip' },
+      { from: 'bot', lines: [
+        '**Step 6/6: Message capture**',
         'Reply `c <channel_id>` to capture a channel, or `done` to skip.',
       ]},
       { from: 'user', text: 'done' },
@@ -2026,7 +2042,7 @@ async function hashPassword(password: string): Promise<string> {
   }
 }
 
-type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs' | 'quick_answers';
+type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs' | 'quick_answers' | 'codes';
 
 function QuickAnswerRow({ item, theme }: { item: FaqEntry; theme: Record<string, string> }) {
   const [copied, setCopied] = React.useState(false);
@@ -2056,6 +2072,20 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   // account linking - persisted to localStorage
   const [linkedId, setLinkedId] = useState<string>(() => { try { return localStorage.getItem('admin_linked_id') || ''; } catch { return ''; } });
   const [linkStep, setLinkStep] = useState<'idle' | 'linking' | 'code'>('idle');
+
+  // Live countdown: returns seconds remaining from a unix timestamp, updates every second
+  const useCountdown = (expiresAt: number | null) => {
+    const [secsLeft, setSecsLeft] = useState<number | null>(null);
+    useEffect(() => {
+      if (!expiresAt) { setSecsLeft(null); return; }
+      const tick = () => setSecsLeft(Math.max(0, Math.floor(expiresAt - Date.now() / 1000)));
+      tick();
+      const id = setInterval(tick, 1000);
+      return () => clearInterval(id);
+    }, [expiresAt]);
+    return secsLeft;
+  };
+  const fmtCountdown = (s: number) => `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
   const [linkInput, setLinkInput] = useState('');
   const [linkUserId, setLinkUserId] = useState('');
   const [linkCodeInput, setLinkCodeInput] = useState('');
@@ -2065,19 +2095,71 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const [pwChecking, setPwChecking] = useState(false);
   const [view, setView] = useState<AdminView>('dashboard');
   const [selectedServer, setSelectedServer] = useState<string | null>(null);
-  const [serverSort, setServerSort] = useState<'members_desc' | 'members_asc' | 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'backed_up'>('members_desc');
+  const [serverSort, setServerSort] = useState<'members_desc' | 'members_asc' | 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'backed_up' | 'storage_desc'>('storage_desc');
   const [serverSearch, setServerSearch] = useState('');
   const [backupSearch, setBackupSearch] = useState('');
+  const [backupHoursAgo, setBackupHoursAgo] = useState('');
   const [errorSearch, setErrorSearch] = useState('');
   const [quickSearch, setQuickSearch] = useState('');
+  const [githubToken, setGithubToken] = useState<string>(() => { try { return localStorage.getItem('gh_pat') || ''; } catch { return ''; } });
+  const [githubTokenInput, setGithubTokenInput] = useState('');
+  const [cancelStatus, setCancelStatus] = useState<Record<string, 'loading' | 'done' | 'error'>>({});
 
-  const ADMIN_VIEWS: { id: AdminView; label: string; icon: string }[] = [
+  const COMMANDS_URL = 'https://api.github.com/repos/potatofemboy/discord-data/contents/commands.json';
+
+  const queueCommand = async (action: { action: string; [k: string]: any }): Promise<{ ok: boolean; error?: string }> => {
+    const token = githubToken;
+    if (!token) return { ok: false, error: 'No GitHub token set.' };
+    try {
+      let existing: { pending: any[] } = { pending: [] };
+      let sha: string | undefined;
+      const res = await fetch(COMMANDS_URL, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } });
+      if (res.ok) {
+        const meta = await res.json();
+        sha = meta.sha;
+        try { existing = JSON.parse(atob(meta.content.replace(/\n/g, ''))); } catch {}
+      } else if (res.status !== 404) {
+        return { ok: false, error: `GitHub fetch failed: ${res.status}` };
+      }
+      const newCmd = { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, ...action };
+      const updated = { pending: [...(existing.pending ?? []), newCmd] };
+      const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(updated, null, 2))));
+      const body: any = { message: `dashboard: queue ${action.action}`, content: newContent };
+      if (sha) body.sha = sha;
+      const putRes = await fetch(COMMANDS_URL, {
+        method: 'PUT',
+        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!putRes.ok) { const e = await putRes.json(); return { ok: false, error: e.message ?? `PUT failed: ${putRes.status}` }; }
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? 'Unknown error' };
+    }
+  };
+
+  const cancelCode = async (userId: string) => {
+    setCancelStatus(s => ({ ...s, [userId]: 'loading' }));
+    const result = await queueCommand({ action: 'cancel_code', user_id: userId });
+    setCancelStatus(s => ({ ...s, [userId]: result.ok ? 'done' : 'error' }));
+    if (result.ok) { setTimeout(() => { onRefresh(); setCancelStatus(s => { const n = { ...s }; delete n[userId]; return n; }); }, 800); }
+  };
+
+  const cancelBypass = async () => {
+    setCancelStatus(s => ({ ...s, __bypass__: 'loading' }));
+    const result = await queueCommand({ action: 'cancel_bypass' });
+    setCancelStatus(s => ({ ...s, __bypass__: result.ok ? 'done' : 'error' }));
+    if (result.ok) { setTimeout(() => { onRefresh(); setCancelStatus(s => { const n = { ...s }; delete n.__bypass__; return n; }); }, 800); }
+  };
+
+  const ADMIN_VIEWS: { id: AdminView; label: string; icon: string; ownerOnly?: boolean }[] = [
     { id: 'dashboard',     label: 'Dashboard',      icon: '📊' },
     { id: 'servers',       label: 'Servers',        icon: '🌐' },
     { id: 'backups',       label: 'Backups',        icon: '💾' },
     { id: 'access',        label: 'Access Control', icon: '🔐' },
     { id: 'logs',          label: 'Error Log',      icon: '❌' },
     { id: 'quick_answers', label: 'Quick Answers',  icon: '💬' },
+    { id: 'codes',         label: 'Link Codes',     icon: '🔑', ownerOnly: true },
   ];
 
   // ── Real data from liveData (data.json) ──────────────────────────────────
@@ -2117,15 +2199,17 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   // Helper: estimate save/restore duration based on server size
   const estimateSaveTime = (g: GuildInfo | undefined) => {
     if (!g) return null;
-    // Rough heuristic: ~2s base + 0.05s/member + 0.3s/channel + 0.2s/role
-    const secs = 2 + g.member_count * 0.05 + g.channel_count * 0.3 + g.role_count * 0.2;
-    if (secs < 60) return `~${Math.round(secs)}s`;
-    return `~${Math.floor(secs / 60)}m ${Math.round(secs % 60)}s`;
+    // Base processing time (fixed overhead: emojis, stickers, webhooks, automod, etc.)
+    // plus small variable component. Message capture adds significant time but is unknown.
+    // Calibrated against 4 real servers (33–287 members, 28–51 roles).
+    const base = 70 + g.member_count * 0.05 + g.role_count * 0.8;
+    const withMsgs = Math.max(base * 2.5, base + 150);
+    const fmt = (s: number) => s < 60 ? `${Math.round(s)}s` : `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+    return `~${fmt(base)}–${fmt(withMsgs)}*`;
   };
   const estimateRestoreTime = (g: GuildInfo | undefined) => {
     if (!g) return null;
-    // Restore is slower: role creation is rate-limited at ~3s/role + channel creation
-    const secs = 5 + g.role_count * 3.2 + g.channel_count * 0.8 + g.member_count * 0.02;
+    const secs = 10 + g.member_count * 0.05 + g.channel_count * 1.5 + g.role_count * 4.5;
     if (secs < 60) return `~${Math.round(secs)}s`;
     return `~${Math.floor(secs / 60)}m ${Math.round(secs % 60)}s`;
   };
@@ -2151,7 +2235,11 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   // All guilds the bot is in (live snapshot)
   const allGuilds = Object.values(guildSnap);
   // Servers with backups, sourced from forum scan (backup_inventory), not backup_owners
-  const backupServerIds = Object.keys(backupInv);
+  const backupServerIds = Object.keys(backupInv).sort((a, b) => {
+    const sizeA = (backupInv[a] ?? []).reduce((s, e) => s + (e.size_kb ?? 0), 0);
+    const sizeB = (backupInv[b] ?? []).reduce((s, e) => s + (e.size_kb ?? 0), 0);
+    return sizeB - sizeA;
+  });
 
   // Access list: owner row + managers + admins
   const OWNER_ID_STR = '1425423027335598090';
@@ -2216,10 +2304,34 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
     setPwChecking(false);
   };
 
+  // Derive code expiry from live data for the current linking user
+  const codeExpiry = linkStep === 'code' && linkUserId
+    ? (liveData?.dash_link_codes?.[linkUserId]?.expires ?? null)
+    : null;
+  const codeSecsLeft = useCountdown(codeExpiry);
+  const codeExpired = codeSecsLeft !== null && codeSecsLeft <= 0;
+
+  // Bypass countdown — hoisted to top level (hooks can't be called inside callbacks)
+  const bypassExpiry = (liveData as any)?.dash_link_bypass?.expires ?? null;
+  const bypassSecsLeft = useCountdown(bypassExpiry);
+
   const attemptLink = () => {
     const trimmed = linkInput.trim();
     if (!/^\d{17,19}$/.test(trimmed)) {
       setLinkError('Enter a valid Discord user ID (17-19 digits). Enable Developer Mode, right-click your profile, and copy ID.');
+      return;
+    }
+    // Check bypass first — if active for this user, log in immediately, no code needed
+    const bypassEntry: { user_id: string; expires?: number } | undefined = liveData?.dash_link_bypass;
+    const bypassValid = bypassEntry && (!bypassEntry.expires || Date.now() / 1000 < bypassEntry.expires);
+    if (bypassValid && bypassEntry!.user_id === trimmed) {
+      try { localStorage.setItem('admin_linked_id', trimmed); } catch {}
+      setLinkedId(trimmed);
+      setLinkStep('idle');
+      setLinkError('');
+      setLinkInput('');
+      setLinkUserId('');
+      setAuthed(true);
       return;
     }
     setLinkStep('code');
@@ -2230,21 +2342,9 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
 
   const attemptVerifyCode = () => {
     const code = linkCodeInput.trim();
-    if (!code) { setLinkError('Enter the 6-digit code the bot DMed you.'); return; }
+    if (!code) { setLinkError('Enter the code the bot DMed you.'); return; }
 
-    // Check one-time owner bypass first
-    const bypassEntry: { user_id: string; code: string } | undefined = liveData?.dash_link_bypass;
-    if (bypassEntry && bypassEntry.user_id === linkUserId && code === bypassEntry.code) {
-      try { localStorage.setItem('admin_linked_id', linkUserId); } catch {}
-      setLinkedId(linkUserId);
-      setLinkStep('idle');
-      setLinkError('');
-      setLinkCodeInput('');
-      setLinkUserId('');
-      setAuthed(true);
-      return;
-    }
-
+    // bypass users are handled in attemptLink and never reach this step
     const codes: Record<string, { code: string; expires: number }> = liveData?.dash_link_codes ?? {};
     const entry = codes[linkUserId];
     if (!entry) { setLinkError('Code not found yet. DM the bot #$linkdash, then hit Refresh before verifying.'); return; }
@@ -2273,6 +2373,11 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
           <strong style={{ color: theme.text }}>2.</strong> Hit <strong style={{ color: theme.text }}>Refresh</strong> to load it.<br />
           <strong style={{ color: theme.text }}>3.</strong> Enter the code and hit <strong style={{ color: theme.text }}>Verify</strong>.<br />
           <span style={{ fontSize: 11 }}>Linking as: <strong style={{ color: theme.text }}>{name}</strong></span>
+          {codeSecsLeft !== null && (
+            <span style={{ fontSize: 11, marginTop: 4, color: codeExpired ? '#ED4245' : codeSecsLeft < 60 ? '#FEE75C' : '#57F287' }}>
+              {codeExpired ? '⏰ Code expired — DM the bot again to get a new one.' : `⏱ Code expires in ${fmtCountdown(codeSecsLeft)}`}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%', maxWidth: 300 }}>
           <div style={{ display: 'flex', gap: 10, width: '100%' }}>
@@ -2415,7 +2520,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
     <div style={{ display: 'flex', gap: 16 }}>
       {/* Sidebar */}
       <div style={{ width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {ADMIN_VIEWS.map(v => (
+        {ADMIN_VIEWS.filter(v => !v.ownerOnly || linkedId === OWNER_ID_STR).map(v => (
           <button key={v.id} onClick={() => setView(v.id)} style={{
             padding: '9px 14px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer',
             background: view === v.id ? 'rgba(88,101,242,0.15)' : 'transparent',
@@ -2477,24 +2582,61 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         {view === 'dashboard' && <>
           {/* Owner-only: one-time link bypass */}
           {linkedId === OWNER_ID_STR && (() => {
-            const bypass: { user_id: string; code: string } | undefined = liveData?.dash_link_bypass;
+            const bypass: { user_id: string; expires?: number } | undefined = liveData?.dash_link_bypass;
+            const bypassActive = bypass && (!bypass.expires || Date.now() / 1000 < bypass.expires);
             const uc = bypass ? liveData?.user_cache?.[bypass.user_id] : null;
             const bypassName = uc?.display_name || uc?.name || bypass?.user_id;
+            const bypassCountdownStr = bypassSecsLeft !== null && bypassActive
+              ? (bypassSecsLeft < 60 ? `${bypassSecsLeft}s` : fmtCountdown(bypassSecsLeft))
+              : null;
             return card(<>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div style={{ fontWeight: 700, color: theme.text, fontSize: 13 }}>🔑 Link Bypass <span style={{ fontSize: 11, fontWeight: 400, color: '#ED4245', marginLeft: 6 }}>Owner only</span></div>
-                {bypass && <span style={{ fontSize: 11, color: '#57F287', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', padding: '2px 8px', borderRadius: 6 }}>Active</span>}
+                {bypassActive && <span style={{ fontSize: 11, color: bypassSecsLeft !== null && bypassSecsLeft < 60 ? '#FEE75C' : '#57F287', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', padding: '2px 8px', borderRadius: 6 }}>
+                  {bypassCountdownStr ? `⏱ ${bypassCountdownStr}` : 'Active'}
+                </span>}
+                {bypass && !bypassActive && <span style={{ fontSize: 11, color: theme.muted, background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, padding: '2px 8px', borderRadius: 6 }}>Expired</span>}
               </div>
               <div style={{ fontSize: 12, color: theme.muted, marginBottom: 10, lineHeight: 1.5 }}>
-                Pre-authorize a Discord ID to skip DM verification once. Run <code style={{ color: '#5865F2' }}>#$linkbypass &lt;user_id&gt;</code> in DMs with the bot. The bot will give you a one-time code to pass along.
+                Pre-authorize a Discord ID to skip DM verification once. Run <code style={{ color: '#5865F2' }}>#$linkbypass &lt;user_id&gt;</code> in DMs with the bot. They just enter their Discord ID — no code needed.
               </div>
-              {bypass
+              {bypassActive
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(87,242,135,0.07)', border: '1px solid rgba(87,242,135,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
                     <span style={{ color: '#57F287' }}>✓</span>
                     <span style={{ color: theme.text }}>Bypass set for <strong>{bypassName}</strong></span>
-                    <code style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, marginLeft: 'auto' }}>{bypass.user_id}</code>
+                    <code style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, marginLeft: 'auto' }}>{bypass!.user_id}</code>
                   </div>
                 : <div style={{ fontSize: 12, color: theme.muted, fontStyle: 'italic' }}>No bypass currently set.</div>
+              }
+            </>);
+          })()}
+          {(() => {
+            if (linkedId !== OWNER_ID_STR) return null;
+            const allCodes: Record<string, { code: string; expires: number }> = liveData?.dash_link_codes ?? {};
+            const now = Date.now() / 1000;
+            const activeCodes = Object.entries(allCodes).filter(([, v]) => v.expires > now);
+            return card(<>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: theme.text, fontSize: 13 }}>📋 Active Link Codes <span style={{ fontSize: 11, fontWeight: 400, color: '#ED4245', marginLeft: 6 }}>Owner only</span></div>
+                {activeCodes.length > 0 && <span style={{ fontSize: 11, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', padding: '2px 8px', borderRadius: 6 }}>{activeCodes.length} active</span>}
+              </div>
+              {activeCodes.length === 0
+                ? <div style={{ fontSize: 12, color: theme.muted, fontStyle: 'italic' }}>No active link codes right now.</div>
+                : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {activeCodes.map(([uid, v]) => {
+                      const u = liveData?.user_cache?.[uid];
+                      const name = u?.display_name || u?.name || uid;
+                      const secsLeft = Math.max(0, Math.floor(v.expires - now));
+                      const timeStr = secsLeft < 60 ? `${secsLeft}s` : fmtCountdown(secsLeft);
+                      return (
+                        <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(254,231,92,0.04)', border: '1px solid rgba(254,231,92,0.15)', borderRadius: 8, padding: '7px 12px', fontSize: 12 }}>
+                          <span style={{ color: theme.text, flex: 1 }}><strong>{name}</strong></span>
+                          <code style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 12, letterSpacing: 2 }}>{v.code}</code>
+                          <span style={{ color: secsLeft < 60 ? '#ED4245' : '#FEE75C', fontSize: 11, flexShrink: 0 }}>⏱ {timeStr}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
               }
             </>);
           })()}
@@ -2612,6 +2754,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                   { id: 'name_asc',     label: 'A→Z' },
                   { id: 'name_desc',    label: 'Z→A' },
                   { id: 'backed_up',    label: '💾 Backed Up' },
+                  { id: 'storage_desc', label: '💿 Storage' },
                 ] as { id: typeof serverSort; label: string }[]).map(opt => (
                   <button key={opt.id} onClick={() => setServerSort(opt.id)} style={{
                     padding: '4px 9px', borderRadius: 6, border: `1px solid ${serverSort === opt.id ? '#5865F2' : theme.border}`,
@@ -2645,6 +2788,11 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 if (serverSort === 'name_asc')     return a.name.localeCompare(b.name);
                 if (serverSort === 'name_desc')    return b.name.localeCompare(a.name);
                 if (serverSort === 'backed_up')    return (backupOwners[b.id] ? 1 : 0) - (backupOwners[a.id] ? 1 : 0);
+                if (serverSort === 'storage_desc') {
+                  const sizeA = (backupInv[a.id] ?? []).reduce((s, e) => s + (e.size_kb ?? 0), 0);
+                  const sizeB = (backupInv[b.id] ?? []).reduce((s, e) => s + (e.size_kb ?? 0), 0);
+                  return sizeB - sizeA;
+                }
                 return 0;
               }).map(g => {
                 const isOpen = selectedServer === g.id;
@@ -2675,12 +2823,14 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       <span style={{ color: theme.muted, fontSize: 11, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
                     </div>
                     {/* Expanded detail */}
-                    {isOpen && (
+                    <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.25s ease' }}>
+                      <div style={{ overflow: 'hidden' }}>
                       <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${theme.border}` }}>
                         {(saveEst || restoreEst) && (
                           <div style={{ display: 'flex', gap: 16, padding: '8px 0 4px', fontSize: 11, color: theme.muted }}>
                             {saveEst && <span>⏱ Est. save: <span style={{ color: '#5865F2', fontWeight: 600 }}>{saveEst}</span></span>}
                             {restoreEst && <span>🔄 Est. restore: <span style={{ color: '#EB459E', fontWeight: 600 }}>{restoreEst}</span></span>}
+                            {saveEst && <span title="Lower end = no message capture. Upper end = with message history capture enabled.">* msg capture varies</span>}
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, marginBottom: 10 }}>
@@ -2723,7 +2873,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                           ))}
                         </div>
                       </div>
-                    )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -2750,30 +2901,74 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: '#5865F2' }}>#$save &lt;server_id&gt;</code> to create one.</div>
             )}
             {backupServerIds.length > 0 && (
-              <input
-                type="text"
-                placeholder="🔍 Search by server name or ID…"
-                value={backupSearch}
-                onChange={e => setBackupSearch(e.target.value)}
-                style={{ width: '100%', padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 13, outline: 'none', marginBottom: 4, boxSizing: 'border-box' }}
-              />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Server name or ID…"
+                  value={backupSearch}
+                  onChange={e => setBackupSearch(e.target.value)}
+                  style={{ flex: 3, padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                />
+                <input
+                  type="number"
+                  placeholder="⏱ Hours ago"
+                  min={0}
+                  value={backupHoursAgo}
+                  onChange={e => setBackupHoursAgo(e.target.value)}
+                  style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {backupServerIds.filter(sid => {
-                if (!backupSearch.trim()) return true;
-                const q = backupSearch.toLowerCase();
-                return sid.includes(q) || (guildSnap[sid]?.name ?? '').toLowerCase().includes(q);
-              }).map(sid => {
+              {(() => {
+                const hoursVal = backupHoursAgo.trim() !== '' ? parseFloat(backupHoursAgo) : null;
+                const targetMs = hoursVal !== null && !isNaN(hoursVal) ? Date.now() - hoursVal * 3600 * 1000 : null;
+
+                const filtered = backupServerIds.filter(sid => {
+                  if (!backupSearch.trim()) return true;
+                  const q = backupSearch.toLowerCase();
+                  return sid.includes(q) || (guildSnap[sid]?.name ?? '').toLowerCase().includes(q);
+                });
+
+                if (filtered.length === 0) {
+                  return <div style={{ color: theme.muted, fontSize: 13, padding: '10px 0' }}>No servers match your search.</div>;
+                }
+
+                // For each server, find the closest backup to targetMs if set
+                const closestBackupIdx: Record<string, number> = {};
+                if (targetMs !== null) {
+                  for (const sid of filtered) {
+                    const entries = backupInv[sid] ?? [];
+                    let bestIdx = -1, bestDiff = Infinity;
+                    entries.forEach((e, i) => {
+                      if (!e.timestamp_iso) return;
+                      const isoUtc = e.timestamp_iso.endsWith('Z') || e.timestamp_iso.includes('+') ? e.timestamp_iso : e.timestamp_iso + 'Z';
+                      const diff = Math.abs(new Date(isoUtc).getTime() - targetMs);
+                      if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+                    });
+                    closestBackupIdx[sid] = bestIdx;
+                  }
+                  // If hours ago is set but no server has any timestamped backups
+                  const anyMatch = filtered.some(sid => closestBackupIdx[sid] >= 0);
+                  if (!anyMatch) {
+                    return <div style={{ color: theme.muted, fontSize: 13, padding: '10px 0' }}>No backups found with timestamp data for that time range.</div>;
+                  }
+                }
+
+                return filtered.map(sid => {
                 const g          = guildSnap[sid];
                 const rawOwnerId = String(backupOwners[sid] ?? '');
                 const ownerInfo  = rawOwnerId && rawOwnerId !== 'undefined' ? resolveUser(rawOwnerId) : null;
                 const shared     = (sharedAccess[sid] ?? []).map(String);
                 const entries    = backupInv[sid] ?? [];
+                const closestIdx = closestBackupIdx[sid] ?? -1;
                 const isOpen     = selectedServer === sid;
                 const days       = daysSinceBackup(sid);
                 const stale      = days !== null && days > 7;
                 const saveEst    = estimateSaveTime(g);
                 const restoreEst = estimateRestoreTime(g);
+                const closestEntry = closestIdx >= 0 ? entries[closestIdx] : null;
+                const closestNum   = closestIdx >= 0 ? entries.length - closestIdx : null;
                 return (
                   <div key={sid} style={{ border: `1px solid ${isOpen ? '#5865F2' : stale ? 'rgba(254,231,92,0.4)' : theme.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s' }}>
                     <div onClick={() => setSelectedServer(isOpen ? null : sid)}
@@ -2816,7 +3011,24 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       )}
                       <span style={{ color: theme.muted, fontSize: 11, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block', flexShrink: 0 }}>&#9658;</span>
                     </div>
-                    {isOpen && (
+                    {/* Closest backup preview — shown when card is collapsed and hours-ago is active */}
+                    {!isOpen && targetMs !== null && closestEntry && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', fontSize: 12, borderTop: `1px solid ${theme.border}`, background: 'rgba(88,101,242,0.07)' }}>
+                        <span style={{ fontSize: 10, color: '#5865F2', background: 'rgba(88,101,242,0.15)', border: '1px solid rgba(88,101,242,0.4)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>closest</span>
+                        <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0 }}>{closestEntry.timestamp_str}</span>
+                        <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
+                          {closestEntry.size_kb != null ? (closestEntry.size_kb >= 1024 ? `${(closestEntry.size_kb / 1024).toFixed(1)} MB` : `${closestEntry.size_kb} KB`) : '--'}
+                        </span>
+                        {closestEntry.encrypted && <span style={{ background: 'rgba(254,231,92,0.15)', color: '#FEE75C', fontSize: 10, padding: '1px 5px', borderRadius: 4, border: '1px solid rgba(254,231,92,0.3)', flexShrink: 0 }}>&#128274; ENC</span>}
+                        <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>#{closestNum}</span>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                          <button onClick={e => { e.stopPropagation(); copyId(`#$load ${sid} ${closestNum}`); }} style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(87,242,135,0.3)`, background: 'rgba(87,242,135,0.08)', color: 'var(--green)', fontSize: 10, cursor: 'pointer' }}>{copiedId === `#$load ${sid} ${closestNum}` ? '✓ copied' : '📋 load'}</button>
+                          <button onClick={e => { e.stopPropagation(); copyId(`#$delbackup ${sid} ${closestNum}`); }} style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(237,66,69,0.3)`, background: 'rgba(237,66,69,0.08)', color: '#ED4245', fontSize: 10, cursor: 'pointer' }}>{copiedId === `#$delbackup ${sid} ${closestNum}` ? '✓ copied' : '📋 del'}</button>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.25s ease' }}>
+                      <div style={{ overflow: 'hidden' }}>
                       <div style={{ borderTop: `1px solid ${theme.border}` }}>
                         {/* Estimated times */}
                         {(saveEst || restoreEst) && (
@@ -2824,32 +3036,45 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                             {saveEst && <span>⏱ Est. save: <span style={{ color: '#5865F2', fontWeight: 600 }}>{saveEst}</span></span>}
                             {restoreEst && <span>🔄 Est. restore: <span style={{ color: '#EB459E', fontWeight: 600 }}>{restoreEst}</span></span>}
                             {g && <span style={{ color: theme.muted }}>({g.member_count.toLocaleString()} members, {g.role_count} roles, {g.channel_count} channels)</span>}
+                            {saveEst && <span title="Lower end = no message capture. Upper end = with message history capture enabled.">* msg capture varies</span>}
                           </div>
                         )}
-                        {entries.map((b, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: theme.surface }}>
-                            <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0, minWidth: 160 }}>{b.timestamp_str}</span>
-                            <code style={{ color: theme.muted, fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.thread_name}</code>
-                            {i === 0 && <span style={{ fontSize: 10, color: 'var(--green)', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>latest</span>}
-                            <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
-                              {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '--'}
-                            </span>
-                            {b.encrypted && (
-                              <span style={{ background: 'rgba(254,231,92,0.15)', color: '#FEE75C', fontSize: 10, padding: '1px 5px', borderRadius: 4, border: '1px solid rgba(254,231,92,0.3)', flexShrink: 0 }}>&#128274; ENC</span>
-                            )}
-                            <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>#{entries.length - i}</span>
-                            <button
-                              onClick={e => { e.stopPropagation(); copyId(`#$delbackup ${sid} ${entries.length - i}`); }}
-                              title="Copy delete command"
-                              style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(237,66,69,0.3)`, background: 'rgba(237,66,69,0.08)', color: '#ED4245', fontSize: 10, cursor: 'pointer', flexShrink: 0 }}
-                            >{copiedId === `#$delbackup ${sid} ${entries.length - i}` ? '✓ copied' : '📋 copy del cmd'}</button>
-                          </div>
-                        ))}
+                        <div style={entries.length > 10 ? { maxHeight: 360, overflowY: 'auto', scrollbarWidth: 'thin' } : {}}>
+                          {entries.map((b, i) => {
+                            const isClosest = targetMs !== null && i === closestIdx;
+                            const bNum = entries.length - i;
+                            return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: isClosest ? 'rgba(88,101,242,0.10)' : theme.surface, outline: isClosest ? '2px solid rgba(88,101,242,0.5)' : 'none', outlineOffset: -2 }}>
+                              <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0, minWidth: 160 }}>{b.timestamp_str}</span>
+                              <code style={{ color: theme.muted, fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.thread_name}</code>
+                              {i === 0 && <span style={{ fontSize: 10, color: 'var(--green)', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>latest</span>}
+                              {isClosest && <span style={{ fontSize: 10, color: '#5865F2', background: 'rgba(88,101,242,0.15)', border: '1px solid rgba(88,101,242,0.4)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>closest</span>}
+                              <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
+                                {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '--'}
+                              </span>
+                              {b.encrypted && (
+                                <span style={{ background: 'rgba(254,231,92,0.15)', color: '#FEE75C', fontSize: 10, padding: '1px 5px', borderRadius: 4, border: '1px solid rgba(254,231,92,0.3)', flexShrink: 0 }}>&#128274; ENC</span>
+                              )}
+                              <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>#{bNum}</span>
+                              <button
+                                onClick={e => { e.stopPropagation(); copyId(`#$load ${sid} ${bNum}`); }}
+                                style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(87,242,135,0.3)`, background: 'rgba(87,242,135,0.08)', color: 'var(--green)', fontSize: 10, cursor: 'pointer', flexShrink: 0 }}
+                              >{copiedId === `#$load ${sid} ${bNum}` ? '✓ copied' : '📋 load'}</button>
+                              <button
+                                onClick={e => { e.stopPropagation(); copyId(`#$delbackup ${sid} ${bNum}`); }}
+                                style={{ padding: '2px 7px', borderRadius: 4, border: `1px solid rgba(237,66,69,0.3)`, background: 'rgba(237,66,69,0.08)', color: '#ED4245', fontSize: 10, cursor: 'pointer', flexShrink: 0 }}
+                              >{copiedId === `#$delbackup ${sid} ${bNum}` ? '✓ copied' : '📋 del'}</button>
+                            </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
+                      </div>
+                    </div>
                   </div>
                 );
-              })}
+              });
+              })()}
             </div>
           </>)}
           {card(<>
@@ -3033,6 +3258,119 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               ))}
             </div>
           </>)}
+        </>}
+
+        {view === 'codes' && linkedId === OWNER_ID_STR && <>
+          {/* GitHub token setup */}
+          {card(<>
+            <div style={{ fontWeight: 700, color: theme.text, fontSize: 13, marginBottom: 8 }}>🔑 GitHub Token <span style={{ fontSize: 11, fontWeight: 400, color: theme.muted, marginLeft: 6 }}>Required to cancel codes</span></div>
+            {githubToken
+              ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 12, color: '#57F287' }}>✅ Token saved</span>
+                  <code style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>ghp_{'•'.repeat(12)}</code>
+                  <button onClick={() => { setGithubToken(''); try { localStorage.removeItem('gh_pat'); } catch {} }} style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '1px solid #ED4245', background: 'transparent', color: '#ED4245', fontSize: 11, cursor: 'pointer' }}>Remove</button>
+                </div>
+              : <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="password"
+                    value={githubTokenInput}
+                    onChange={e => setGithubTokenInput(e.target.value)}
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 12, fontFamily: 'monospace', outline: 'none' }}
+                  />
+                  <button
+                    onClick={() => { if (githubTokenInput.trim()) { const t = githubTokenInput.trim(); setGithubToken(t); try { localStorage.setItem('gh_pat', t); } catch {} setGithubTokenInput(''); } }}
+                    style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                  >Save</button>
+                </div>
+            }
+            <div style={{ fontSize: 11, color: theme.muted, marginTop: 8 }}>Stored only in your browser.</div>
+          </>)}
+
+          {/* Active link codes */}
+          {card((() => {
+            const allCodes: Record<string, { code: string; expires: number }> = liveData?.dash_link_codes ?? {};
+            const now = Date.now() / 1000;
+            const activeCodes = Object.entries(allCodes).filter(([, v]) => v.expires > now);
+            return <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: theme.text, fontSize: 13 }}>📨 Active Link Codes</div>
+                <span style={{ fontSize: 11, color: activeCodes.length ? '#FEE75C' : theme.muted, background: activeCodes.length ? 'rgba(254,231,92,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${activeCodes.length ? 'rgba(254,231,92,0.3)' : theme.border}`, padding: '2px 8px', borderRadius: 6 }}>
+                  {activeCodes.length} active
+                </span>
+              </div>
+              {activeCodes.length === 0
+                ? <div style={{ fontSize: 12, color: theme.muted, fontStyle: 'italic' }}>No active link codes right now.</div>
+                : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {activeCodes.map(([uid, v]) => {
+                      const u = liveData?.user_cache?.[uid];
+                      const name = u?.display_name || u?.name || uid;
+                      const secsLeft = Math.max(0, Math.floor(v.expires - now));
+                      const timeStr = secsLeft < 60 ? `${secsLeft}s` : fmtCountdown(secsLeft);
+                      const st = cancelStatus[uid];
+                      return (
+                        <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(254,231,92,0.04)', border: '1px solid rgba(254,231,92,0.15)', borderRadius: 8, padding: '8px 12px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>{name}</div>
+                            <div style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>{uid}</div>
+                          </div>
+                          <code style={{ color: '#FEE75C', fontFamily: 'monospace', fontSize: 13, letterSpacing: 3 }}>{v.code}</code>
+                          <span style={{ fontSize: 11, color: secsLeft < 60 ? '#ED4245' : '#FEE75C', flexShrink: 0 }}>⏱ {timeStr}</span>
+                          <button
+                            onClick={() => cancelCode(uid)}
+                            disabled={!!st}
+                            style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #ED4245', background: st === 'done' ? 'rgba(87,242,135,0.1)' : st === 'error' ? 'rgba(237,66,69,0.15)' : 'transparent', color: st === 'done' ? '#57F287' : st === 'error' ? '#ED4245' : '#ED4245', fontSize: 11, cursor: st ? 'not-allowed' : 'pointer', flexShrink: 0, fontWeight: 600 }}
+                          >
+                            {st === 'loading' ? '...' : st === 'done' ? '✓' : st === 'error' ? '✗ fail' : 'Cancel'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+              }
+            </>;
+          })())}
+
+          {/* Bypass */}
+          {card((() => {
+            const bypass: { user_id: string; expires?: number } | undefined = liveData?.dash_link_bypass;
+            const now = Date.now() / 1000;
+            const active = bypass && (!bypass.expires || now < bypass.expires);
+            const secsLeft = bypass?.expires ? Math.max(0, Math.floor(bypass.expires - now)) : null;
+            const timeStr = secsLeft !== null ? (secsLeft < 60 ? `${secsLeft}s` : fmtCountdown(secsLeft)) : null;
+            const u = bypass ? liveData?.user_cache?.[bypass.user_id] : null;
+            const name = u?.display_name || u?.name || bypass?.user_id;
+            const st = cancelStatus['__bypass__'];
+            return <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: theme.text, fontSize: 13 }}>⚡ Link Bypass</div>
+                {active
+                  ? <span style={{ fontSize: 11, color: secsLeft !== null && secsLeft < 60 ? '#FEE75C' : '#57F287', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', padding: '2px 8px', borderRadius: 6 }}>Active{timeStr ? ` · ${timeStr}` : ''}</span>
+                  : bypass
+                    ? <span style={{ fontSize: 11, color: theme.muted, background: 'rgba(255,255,255,0.04)', border: `1px solid ${theme.border}`, padding: '2px 8px', borderRadius: 6 }}>Expired</span>
+                    : null
+                }
+              </div>
+              {!bypass
+                ? <div style={{ fontSize: 12, color: theme.muted, fontStyle: 'italic' }}>No bypass currently set.</div>
+                : <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: active ? 'rgba(87,242,135,0.04)' : 'rgba(255,255,255,0.02)', border: `1px solid ${active ? 'rgba(87,242,135,0.2)' : theme.border}`, borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>{name}</div>
+                      <div style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>{bypass.user_id}</div>
+                    </div>
+                    {active && (
+                      <button
+                        onClick={cancelBypass}
+                        disabled={!!st}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #ED4245', background: st === 'done' ? 'rgba(87,242,135,0.1)' : st === 'error' ? 'rgba(237,66,69,0.15)' : 'transparent', color: st === 'done' ? '#57F287' : st === 'error' ? '#ED4245' : '#ED4245', fontSize: 11, cursor: st ? 'not-allowed' : 'pointer', flexShrink: 0, fontWeight: 600 }}
+                      >
+                        {st === 'loading' ? '...' : st === 'done' ? '✓ Cancelled' : st === 'error' ? '✗ Failed' : 'Cancel Bypass'}
+                      </button>
+                    )}
+                  </div>
+              }
+            </>;
+          })())}
         </>}
 
       </div>
@@ -3229,6 +3567,11 @@ export default function App() {
   const [seenVersion, setSeenVersion] = useState<string>(
     () => localStorage.getItem('seenVersion') || ''
   );
+  // Which changelog entry is open. Defaults to latest. Persisted unless a new version appears.
+  const [openChangelogVersion, setOpenChangelogVersion] = useState<string | null>(() => {
+    const saved = localStorage.getItem('openChangelogVersion');
+    return saved ?? (CHANGELOG[0]?.version ?? null);
+  });
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({
     message: '',
@@ -3279,6 +3622,9 @@ export default function App() {
     if (activeTab === 'changelog' && hasNewChangelog) {
       setSeenVersion(latestVersion!);
       localStorage.setItem('seenVersion', latestVersion!);
+      // Force open the new latest entry
+      setOpenChangelogVersion(latestVersion!);
+      localStorage.setItem('openChangelogVersion', latestVersion!);
     }
   }, [activeTab, hasNewChangelog, latestVersion]);
 
@@ -4046,14 +4392,14 @@ export default function App() {
               const getBorderColor = (pct: number) =>
                 pct >= 99.9
                   ? (darkMode ? 'rgba(87,242,135,0.35)' : 'rgba(26,138,60,0.35)')
-                  : pct >= 95 ? 'rgba(254,231,92,0.35)' : 'rgba(237,66,69,0.35)';
+                  : pct >= 90 ? 'rgba(254,231,92,0.35)' : 'rgba(237,66,69,0.35)';
               const getPctColor = (pct: number) =>
-                pct >= 99.9 ? 'var(--green)' : pct >= 95 ? '#FEE75C' : '#ED4245';
+                pct >= 99.9 ? 'var(--green)' : pct >= 90 ? '#FEE75C' : '#ED4245';
               return (
-                <div key={si} style={{ background: 'var(--surface)', border: `1px solid ${isOpen ? s.color + '55' : 'var(--border)'}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+                <div key={si} style={{ background: 'var(--surface)', border: `1px solid ${isOpen ? s.color + '55' : 'var(--border)'}`, borderRadius: 10, overflow: 'visible', transition: 'border-color 0.2s' }}>
                   {/* Row */}
                   <div onClick={() => setOpenService(isOpen ? null : si)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', userSelect: 'none', background: isOpen ? `${s.color}0d` : 'transparent', transition: 'background 0.2s' }}>
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', userSelect: 'none', background: isOpen ? `${s.color}0d` : 'transparent', transition: 'background 0.2s', borderRadius: isOpen ? '10px 10px 0 0' : 10 }}>
                     <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--t)' }}>{s.name}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {s.ping && <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{s.ping}</span>}
@@ -4065,7 +4411,8 @@ export default function App() {
                     </div>
                   </div>
                   {/* Expanded uptime */}
-                  {isOpen && (
+                  <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.25s ease' }}>
+                    <div style={{ overflow: 'hidden' }}>
                     <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--border)' }}>
                       {/* Pct cards */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, paddingTop: 14, marginBottom: 14 }}>
@@ -4163,29 +4510,10 @@ export default function App() {
                         <span style={{ color: '#5865F2' }}>Mar 1 launch</span>
                         <span>Today</span>
                       </div>
-                      {/* Incident log inline (main bot only) */}
-                      {si === 0 && downtimeLog.length > 0 && (
-                        <div style={{ marginTop: 14 }}>
-                          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 8 }}>
-                            Incident History ({downtimeLog.length})
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {[...downtimeLog].reverse().map(entry => (
-                              <div key={entry.id} style={{ padding: '8px 12px', background: 'rgba(237,66,69,0.04)', border: '1px solid rgba(237,66,69,0.15)', borderRadius: 8 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                                  <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#ED4245' }}>#{entry.id} · {entry.duration_human}</span>
-                                  <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: 'monospace' }}>
-                                    {new Date(entry.server_went_down_approx).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{entry.reason}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* Incident log moved to bottom of page */}
                     </div>
-                  )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -4219,121 +4547,52 @@ export default function App() {
         {/* CHANGELOG */}
         {activeTab === 'changelog' && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {CHANGELOG.map((entry, i) => (
-              <div
-                key={i}
-                style={{ display: 'flex', gap: 20, paddingBottom: 28 }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    width: 16,
-                    flexShrink: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      marginTop: 4,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
+            {CHANGELOG.map((entry, i) => {
+              const isOpen = openChangelogVersion === entry.version;
+              const toggle = () => {
+                const next = isOpen ? null : entry.version;
+                setOpenChangelogVersion(next);
+                try { localStorage.setItem('openChangelogVersion', next ?? ''); } catch {}
+              };
+              return (
+              <div key={i} style={{ display: 'flex', gap: 20, paddingBottom: 28 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
+                  <div style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                     <PingDot color={entry.color} size={12} />
                   </div>
                 </div>
-                <div
-                  style={{
-                    flex: 1,
-                    background: 'var(--surface)',
-                    border: `1px solid ${entry.color}44`,
-                    borderRadius: 10,
-                    padding: '14px 18px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontWeight: 700,
-                        color: 'var(--t)',
-                        fontSize: 14,
-                      }}
-                    >
+                <div style={{ flex: 1, background: 'var(--surface)', border: `1px solid ${entry.color}44`, borderRadius: 10, overflow: 'hidden' }}>
+                  {/* Header — always visible, click to toggle */}
+                  <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', cursor: 'pointer', userSelect: 'none' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--t)', fontSize: 14 }}>
                       {entry.version}
                     </span>
-                    <span
-                      style={{
-                        background: `${entry.color}33`,
-                        color: entry.color,
-                        borderRadius: 20,
-                        padding: '1px 8px',
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                        fontWeight: 700,
-                      }}
-                    >
+                    <span style={{ background: `${entry.color}33`, color: entry.color, borderRadius: 20, padding: '1px 8px', fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>
                       {entry.tag}
                     </span>
-                    <span
-                      style={{
-                        marginLeft: 'auto',
-                        fontSize: 11,
-                        color: 'var(--faint)',
-                        fontFamily: 'monospace',
-                      }}
-                    >
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--faint)', fontFamily: 'monospace' }}>
                       {entry.date}
                     </span>
+                    <span style={{ color: 'var(--faint)', fontSize: 11, display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>&#9658;</span>
                   </div>
-                  <div
-                    style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-                  >
-                    {entry.changes.map((c, j) => (
-                      <div
-                        key={j}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 8,
-                          fontSize: 13,
-                          color: 'var(--muted)',
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: entry.color,
-                            flexShrink: 0,
-                            marginTop: 1,
-                          }}
-                        >
-                          +
-                        </span>
-                        {c}
+                  {/* Smooth expand */}
+                  <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.25s ease' }}>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '0 18px 14px', borderTop: `1px solid ${entry.color}22` }}>
+                        {entry.changes.map((c, j) => (
+                          <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--muted)', paddingTop: j === 0 ? 12 : 0 }}>
+                            <span style={{ color: entry.color, flexShrink: 0, marginTop: 1 }}>+</span>
+                            {c}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '8px 0 0',
-                fontSize: 12,
-                color: 'var(--faint)',
-                fontFamily: 'monospace',
-              }}
-            >
+              );
+            })}
+            <div style={{ textAlign: 'center', padding: '8px 0 0', fontSize: 12, color: 'var(--faint)', fontFamily: 'monospace' }}>
               More updates coming soon
             </div>
           </div>
