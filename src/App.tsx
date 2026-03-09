@@ -928,6 +928,271 @@ const FAQ: FaqEntry[] = [
   { q: 'What is the bot owner\'s Discord username?', a: 'The bot is operated by potato. For contact, join the support server at discord.gg/ynatEnRKWV.' },
   { q: 'Is the bot affiliated with Discord?', a: 'No. This is an independent third-party bot and is not affiliated with, endorsed by, or connected to Discord Inc.' },
   { q: 'Does Discord know about this bot?', a: 'The bot operates within Discord\'s API terms of service. It is not officially endorsed by Discord but is compliant with their developer policies.' },
+  { q: 'Can I rename a backup after it is created?', a: 'No. Backups are identified by their timestamp and number. There is no rename feature.' },
+  { q: 'Can I add notes or labels to a backup?', a: 'No. Backups do not support custom labels or notes. Use #$backups to view timestamps and pick by date.' },
+  { q: 'Does the backup include channel topics and descriptions?', a: 'Yes. Channel names, topics, positions, and descriptions are all included in the backup.' },
+  { q: 'Does the backup include NSFW channel flags?', a: 'Yes. Whether a channel is marked NSFW is saved as part of the channel data.' },
+  { q: 'Does the backup include slowmode settings?', a: 'Yes. Slowmode rates per channel are saved in the backup.' },
+  { q: 'Does the backup include channel permission overwrites?', a: 'Yes. Per-channel role and user permission overwrites are fully saved.' },
+  { q: 'Does the backup include category permission overwrites?', a: 'Yes. Category-level permission overwrites are saved.' },
+  { q: 'Does the backup include voice channel settings?', a: 'Yes. Voice channels including bitrate, user limit, and video quality are included.' },
+  { q: 'Does the backup include stage channels?', a: 'Yes. Stage channels and their configurations are included in the backup.' },
+  { q: 'Does the backup include forum channels?', a: 'Yes. Forum channels including their tags and default settings are saved.' },
+  { q: 'Does the backup include announcement channels?', a: 'Yes. Announcement channels are saved as part of the full channel structure.' },
+  { q: 'Does the backup include server rules channel settings?', a: 'Yes. The server rules channel designation is saved in the backup.' },
+  { q: 'Does the backup include the system messages channel?', a: 'Yes. The system messages channel setting is included.' },
+  { q: 'Does the backup include AFK channel settings?', a: 'Yes. AFK channel and AFK timeout settings are included in the backup.' },
+  { q: 'Does the backup include server region settings?', a: 'Discord removed manual server regions. Voice channel regions set per-channel are saved.' },
+  { q: 'Does the backup include server icon?', a: 'No. Server icons and banner images are not included in the backup as they are binary files.' },
+  { q: 'Does the backup include server banner?', a: 'No. Server banners and splash images are not saved. These must be re-uploaded manually after a restore.' },
+  { q: 'Does the backup include server description?', a: 'Yes. The server description text is included in the backup.' },
+  { q: 'Does the backup include server verification level?', a: 'Yes. The server verification level setting is saved.' },
+  { q: 'Does the backup include default message notification settings?', a: 'Yes. Default notification level is saved in the backup.' },
+  { q: 'Does the backup include explicit content filter settings?', a: 'Yes. The explicit content filter level is included.' },
+  { q: 'Does the backup include 2FA requirement for moderation?', a: 'Yes. The MFA level requirement for moderation actions is included in the backup.' },
+  { q: 'Does the backup include server locale?', a: 'Yes. The preferred locale for the server is saved.' },
+  { q: 'Does the backup include community features?', a: 'Community feature settings including updates channel and rules channel are saved where accessible via the API.' },
+  { q: 'What is the #$info command?', a: 'Run #$info <server_id> to get a summary of a server including member count, channel count, role count, and backup status.' },
+  { q: 'What does #$exec do?', a: '#$exec runs moderation and utility actions on a specific server remotely. Admin+ only.' },
+  { q: 'What actions can #$exec perform?', a: '#$exec supports actions like kick, ban, unban, mute, unmute, purge, poll, pin, announce, role, nick, slowmode, lock, unlock, and more. Run #$help exec for the full list.' },
+  { q: 'What is #$purge?', a: '#$exec <id> purge <channel> <count> deletes a number of messages from a channel. Admin+ only.' },
+  { q: 'What is #$announce?', a: '#$exec <id> announce <channel> <message> posts a message to a channel. Admin+ only.' },
+  { q: 'What is #$pin?', a: '#$exec <id> pin <message_id> <channel> pins a message in a channel. Admin+ only.' },
+  { q: 'What is #$lock?', a: '#$exec <id> lock <channel> removes send message permission for everyone in a channel. Admin+ only.' },
+  { q: 'What is #$unlock?', a: '#$exec <id> unlock <channel> restores send message permission for everyone in a channel. Admin+ only.' },
+  { q: 'What is #$slowmode?', a: '#$exec <id> slowmode <channel> <seconds> sets slowmode on a channel. Admin+ only.' },
+  { q: 'What is #$nick?', a: '#$exec <id> nick <user_id> <nickname> changes a user nickname in a server. Admin+ only.' },
+  { q: 'What is #$kick?', a: '#$exec <id> kick <user_id> kicks a user from a server. Admin+ only.' },
+  { q: 'What is #$ban used for in exec?', a: '#$exec <id> ban <user_id> bans a user from a server. Admin+ only.' },
+  { q: 'What is #$unban used for in exec?', a: '#$exec <id> unban <user_id> unbans a user from a server. Admin+ only.' },
+  { q: 'What is #$mute?', a: '#$exec <id> mute <user_id> <duration> server-mutes a user. Admin+ only.' },
+  { q: 'What is #$unmute?', a: '#$exec <id> unmute <user_id> removes a mute from a user. Admin+ only.' },
+  { q: 'Can I run #$exec on any server?', a: 'Only on servers the bot has access to. Admin+ permission is required and the bot must be a member of the server.' },
+  { q: 'What is #$serverlist?', a: 'Lists all servers the bot is currently in. Owner only.' },
+  { q: 'What is #$broadcast?', a: 'Sends a DM message to all registered backup owners. Owner only.' },
+  { q: 'What is #$whitelist?', a: 'Adds a server or user to the whitelist, bypassing the 20-member minimum. Owner/Admin only.' },
+  { q: 'What is #$unwhitelist?', a: 'Removes a server or user from the whitelist. Owner/Admin only.' },
+  { q: 'What is #$block?', a: 'Blocks a server or user from using the bot. Owner/Admin only.' },
+  { q: 'What is #$unblock?', a: 'Removes a block from a server or user. Owner/Admin only.' },
+  { q: 'What is #$addadmin?', a: 'Grants a user admin-level access to the bot. Owner only.' },
+  { q: 'What is #$removeadmin?', a: 'Removes admin-level access from a user. Owner only.' },
+  { q: 'What is #$addmanager?', a: 'Grants a user manager-level access to the bot. Owner only.' },
+  { q: 'What is #$removemanager?', a: 'Removes manager-level access from a user. Owner only.' },
+  { q: 'What is #$admins?', a: 'Lists all current admins and managers. Admin+ only.' },
+  { q: 'What is #$linkdash?', a: 'Generates a one-time code to link your Discord account to the admin dashboard. Available to all users.' },
+  { q: 'What is #$linkbypass?', a: 'Pre-authorizes a Discord user ID for a codeless one-time dashboard login. Owner only.' },
+  { q: 'What does the dashboard show non-owners?', a: 'Admins and managers can see the full dashboard including servers, backups, access control, error log, and quick answers. The Link Codes tab is owner-only.' },
+  { q: 'How does the dashboard sync its data?', a: 'The dashboard reads from a data.json file stored in GitHub that the bot pushes to every 60 seconds. There is no direct connection between your browser and the bot.' },
+  { q: 'Why is the dashboard data sometimes a minute old?', a: 'The bot syncs to GitHub every 60 seconds. There can also be a small delay fetching from GitHub API. The last synced time is shown at the top of the admin panel.' },
+  { q: 'Can I force a dashboard refresh?', a: 'Yes. Use the Refresh button in the admin panel to fetch the latest data from GitHub immediately.' },
+  { q: 'What does the admin panel error log show?', a: 'It shows a log of the most recent 2000 errors the bot encountered, including the command, user, server, and error message.' },
+  { q: 'Can I clear the error log from the dashboard?', a: 'No. The error log is read-only in the dashboard. Only the bot can clear it.' },
+  { q: 'What does the access control tab show?', a: 'It shows lists of admins, managers, whitelisted servers, whitelisted users, blocked servers, and blocked users.' },
+  { q: 'Can I add admins from the dashboard?', a: 'No. The dashboard is read-only. Use #$addadmin in DMs with the bot to grant admin access.' },
+  { q: 'What is the Link Codes tab in the admin panel?', a: 'It shows active link codes and the current bypass entry. Owner only. You can cancel codes or the bypass from this tab, which queues the action for the bot to execute.' },
+  { q: 'How does cancelling a link code from the dashboard work?', a: 'The dashboard writes the cancel action to a commands.json file in GitHub. The bot polls this file every 30 seconds and executes any pending actions.' },
+  { q: 'How long does it take for a cancelled code to take effect?', a: 'Up to 30 seconds, which is how often the bot polls commands.json.' },
+  { q: 'Does the dashboard require a login?', a: 'Yes. You need to enter the admin password first, then link your Discord account using #$linkdash. Once linked, your session is saved in the browser.' },
+  { q: 'How do I log out of the dashboard?', a: 'There is a logout option in the admin panel header that clears your local session.' },
+  { q: 'Can multiple people be logged into the dashboard at the same time?', a: 'Yes. Any number of admins or managers can have active dashboard sessions simultaneously.' },
+  { q: 'Is my dashboard session saved across browser restarts?', a: 'Yes. Your linked Discord ID is stored in localStorage so you do not need to re-link every time.' },
+  { q: 'Can I use the dashboard on my phone?', a: 'Yes. The dashboard is responsive and works on mobile browsers.' },
+  { q: 'What is the dark mode toggle on the dashboard?', a: 'It switches the dashboard between dark and light themes. Your preference is saved in localStorage.' },
+  { q: 'Does the dashboard show which servers have autobackup enabled?', a: 'Yes. The servers and backups views show autobackup status for each server.' },
+  { q: 'Can I change autobackup settings from the dashboard?', a: 'No. Use #$autobackup in DMs with the bot to change settings.' },
+  { q: 'Does the dashboard show backup file sizes?', a: 'Yes. Each backup entry shows its size in KB or MB.' },
+  { q: 'Does the dashboard show when a backup expires?', a: 'Yes. Each backup entry shows how many days are left until it auto-deletes.' },
+  { q: 'What does the storage sort do in the servers view?', a: 'It sorts servers by total backup storage used, descending. Useful for identifying which servers have the largest backups.' },
+  { q: 'What does the hours ago search do in the backups view?', a: 'It finds the backup closest in time to however many hours ago you specify, and highlights it with a blue badge.' },
+  { q: 'Can I copy a load command from the backups view?', a: 'Yes. Each backup entry has a copy load button that copies the exact #$load command to your clipboard.' },
+  { q: 'Can I copy a delete command from the backups view?', a: 'Yes. Each backup entry has a copy del button that copies the exact #$delbackup command to your clipboard.' },
+  { q: 'How do I use the search in the servers view?', a: 'Type a server name or ID into the search box. The list filters in real time.' },
+  { q: 'What is #$autobackup list?', a: 'Lists all currently scheduled autobackup jobs with server IDs and intervals.' },
+  { q: 'What is #$autobackup cancel?', a: 'Cancels the autobackup schedule for a specific server. Run #$autobackup cancel <server_id>.' },
+  { q: 'Does autobackup run even if the bot restarts?', a: 'Yes. Autobackup schedules are persisted in data.json and are reloaded when the bot restarts.' },
+  { q: 'What happens if an autobackup fails?', a: 'The bot logs the error and will attempt the next scheduled run at the normal interval. It does not retry immediately.' },
+  { q: 'Does autobackup send a notification when it completes?', a: 'Yes, if you set a notification channel during setup. The bot will post a message to that channel after each autobackup.' },
+  { q: 'Can I set a different notification channel for autobackup?', a: 'Yes. During #$autobackup setup the bot asks for a channel to send completion notifications to.' },
+  { q: 'Does autobackup use the same settings every time?', a: 'Yes. The settings you chose during setup are reused for every autobackup run.' },
+  { q: 'Can I change autobackup settings without cancelling it?', a: 'No. Cancel the existing schedule with #$autobackup cancel then set it up again with new settings.' },
+  { q: 'What is the minimum autobackup interval?', a: 'The minimum interval is 1 hour. For most servers every 24 hours is sufficient.' },
+  { q: 'Can I have autobackup run at a specific time of day?', a: 'No. Autobackup runs on an interval starting from when you set it up, not at a fixed time of day.' },
+  { q: 'What happens if the bot is offline when an autobackup is due?', a: 'The missed run is skipped. The next run happens at the next scheduled interval after the bot comes back online.' },
+  { q: 'Can I set up autobackup for multiple servers?', a: 'Yes. Run #$autobackup <server_id> <hours> for each server you want to schedule.' },
+  { q: 'How do I know if autobackup is working?', a: 'Check #$backups <server_id> periodically to confirm new entries are being created at the expected interval.' },
+  { q: 'What is #$sharebackup used for?', a: 'Grants another user access to restore your server backups. They can then run #$load on your server even though they are not the owner.' },
+  { q: 'How do I share backup access with someone?', a: 'Run #$sharebackup <server_id> <user_id> to grant the specified user access to restore backups for that server.' },
+  { q: 'What is #$unsharebackup?', a: 'Revokes previously shared backup access for a specific user and server.' },
+  { q: 'What is #$sharedwith?', a: 'Lists all users who currently have shared access to a server backups.' },
+  { q: 'Can a shared user see my backups in #$backups?', a: 'Yes. A user with shared access can use #$backups <server_id> to list backups for that server.' },
+  { q: 'Can a shared user delete my backups?', a: 'No. Shared access only grants the ability to restore. Only the backup owner can delete backups.' },
+  { q: 'Can a shared user create new backups of my server?', a: 'No. Only the server owner can create new backups.' },
+  { q: 'Does shared access persist across new backups?', a: 'Yes. Once access is shared, the user can restore any backup of that server including future ones, until you revoke it.' },
+  { q: 'Can I share backup access with more than one person?', a: 'Yes. You can share access with multiple users by running #$sharebackup separately for each person.' },
+  { q: 'What is the #$diff command?', a: '#$diff <server_id> <n1> <n2> compares two backups for a server side by side, showing added or removed roles, channels, and member count differences.' },
+  { q: 'What does the diff output include?', a: 'The diff shows role additions and removals, channel additions and removals, and member count changes between the two backups.' },
+  { q: 'Can I diff a backup against the live server?', a: '#$verifybackup already shows a live vs backup comparison. #$diff is specifically for comparing two stored backups against each other.' },
+  { q: 'What backup numbers do I use with #$diff?', a: 'Use the backup numbers shown by #$backups <server_id>. Backup 1 is the oldest.' },
+  { q: 'Can I verify a specific backup number?', a: 'Yes. Run #$verifybackup <server_id> <number> to verify a specific backup by its number.' },
+  { q: 'How long does #$verifybackup take?', a: 'Usually 5 to 20 seconds depending on backup size. It downloads and decompresses the full file.' },
+  { q: 'Does #$verifybackup tell me if a backup is corrupted?', a: 'Yes. If the file cannot be decompressed or parsed correctly the bot will report a verification failure.' },
+  { q: 'What does #$verifybackup show for an encrypted backup?', a: 'It will ask for the decryption password before verifying.' },
+  { q: 'What file formats are available when saving a backup?', a: 'Format 1 is uncompressed JSON. Formats 2-5 use increasing compression. Format 5 uses LZMA and is the smallest. Higher compression takes slightly longer.' },
+  { q: 'Which backup format should I use?', a: 'Format 5 (LZMA) is recommended for most users as it gives the smallest file size with no meaningful speed penalty for average servers.' },
+  { q: 'Does the backup format affect restore speed?', a: 'Minimally. Decompression is fast for all formats. Restore time is dominated by Discord API calls, not decompression.' },
+  { q: 'What encryption does the bot use?', a: 'AES-256 encryption. The password you set is used to derive the encryption key.' },
+  { q: 'Is my encryption password stored anywhere?', a: 'No. The password is never stored. It is used at save time and you must provide it again at restore time. If you lose it the backup cannot be decrypted.' },
+  { q: 'What happens if I encrypt a backup and forget the password?', a: 'The backup cannot be decrypted or restored. There is no password recovery. Always store your encryption password safely.' },
+  { q: 'Can I re-encrypt a backup with a different password?', a: 'No. Once a backup is created with a password it cannot be changed. Create a new backup with the new password.' },
+  { q: 'Does encryption slow down the backup?', a: 'Negligibly. The encryption overhead is small compared to the time spent fetching data from Discord.' },
+  { q: 'Can I back up a server I do not own?', a: 'No. Only the server owner can run #$save. Admins and managers cannot create backups unless granted access by the bot owner.' },
+  { q: 'What if I transfer server ownership before making a backup?', a: 'Once you are no longer the owner you cannot create new backups for that server. Run #$save before transferring.' },
+  { q: 'What if I transfer server ownership after making a backup?', a: 'Your existing backups remain registered to your account. The new owner cannot access them unless you use #$sharebackup.' },
+  { q: 'Can I back up a server where I was an admin but not owner?', a: 'No. Only the server owner can create backups.' },
+  { q: 'Can I restore to a server I am not the owner of?', a: 'No. You must own the target server to run #$load on it.' },
+  { q: 'What happens if the bot cannot join a server to restore it?', a: 'The bot needs to be able to join the target server. Ensure the bot invite link works and the server has not blocked bot joins.' },
+  { q: 'Does the bot need admin permissions to perform a restore?', a: 'Yes. The bot needs Administrator permission in the target server to delete and recreate channels and roles.' },
+  { q: 'Does the bot need admin permissions to perform a backup?', a: 'Administrator permission ensures the bot can read all channel lists, roles, members, and server data.' },
+  { q: 'Does #$clone require both servers to be owned by me?', a: 'Yes. You must own both the source and target server to use #$clone.' },
+  { q: 'What is the difference between #$clone and #$load?', a: '#$clone copies the structure of one live server onto another. #$load restores from a stored backup file.' },
+  { q: 'Does #$clone save a backup first?', a: 'No. #$clone directly copies structure without creating a backup file. Use #$save separately if you want a stored backup.' },
+  { q: 'Can I clone a server I do not own?', a: 'No. You must own the source server to use #$clone.' },
+  { q: 'Does #$clone include members?', a: 'No. #$clone copies structure like channels, roles, and categories but not member lists.' },
+  { q: 'How long does #$clone take?', a: 'Typically 30 to 90 seconds depending on server size.' },
+  { q: 'Can I stop a backup that is already in progress?', a: 'No. Once started a backup runs to completion. Do not close the DM or block the bot while it is running.' },
+  { q: 'Can I stop a restore that is already in progress?', a: 'No. Restores cannot be interrupted once started.' },
+  { q: 'What should I do if a restore gets stuck?', a: 'Wait a few minutes. If still stuck, contact support at discord.gg/ynatEnRKWV. Do not run #$load again until the current operation has clearly stopped.' },
+  { q: 'What happens if Discord rate limits the bot during a backup?', a: 'The bot handles rate limits automatically by waiting and retrying. The backup will take longer but should complete.' },
+  { q: 'Can two backups run at the same time?', a: 'Backups for different servers can run in parallel. Running two backups on the exact same server simultaneously is not supported.' },
+  { q: 'What is a helper bot?', a: 'Helper bots are 5 parallel Discord bot instances used to speed up restore operations by handling multiple tasks concurrently.' },
+  { q: 'Do I interact with helper bots directly?', a: 'No. Helper bots operate automatically in the background. All your commands go to the main bot.' },
+  { q: 'What if helper bots are offline?', a: 'Restores will be slower as only the main bot handles them. Backups are not affected by helper bot status.' },
+  { q: 'Are helper bots different accounts from the main bot?', a: 'Yes. They are separate Discord bot accounts operating together as a team.' },
+  { q: 'Does the bot store any personal data?', a: 'The bot stores Discord user IDs, server IDs, and optionally member data if you choose to include it in backups. No passwords or payment data are stored.' },
+  { q: 'Is my backup data private?', a: 'Yes. Backup files are stored privately and are only accessible by the registered backup owner or users with shared access.' },
+  { q: 'Can the bot owner read my backup contents?', a: 'The bot owner manages the storage system. Encrypting your backup prevents anyone without the password from reading its contents.' },
+  { q: 'Does the bot log my commands?', a: 'Errors are logged for debugging. Normal successful commands are not persistently logged.' },
+  { q: 'Does the bot collect analytics?', a: 'Basic usage statistics like server count and backup count are tracked for the dashboard. No personal analytics are sold or shared.' },
+  { q: 'Can I request deletion of my data?', a: 'Yes. Open a ticket at discord.gg/ynatEnRKWV to request deletion of your backup data and associated records.' },
+  { q: 'Are backups stored in the cloud?', a: 'Yes. Backup files are stored in Discord own storage system via the forum channel thread architecture.' },
+  { q: 'What happens to my data if the bot shuts down permanently?', a: 'Backup data would become inaccessible. For critical data, keeping your own manual backups is advisable.' },
+  { q: 'Can I self-host this bot?', a: 'No. The bot is not available for self-hosting. It is a hosted service.' },
+  { q: 'How do I report a bug?', a: 'Open a ticket in the support server at discord.gg/ynatEnRKWV and describe the issue including the command you ran and any error messages.' },
+  { q: 'How do I request a new feature?', a: 'Post in the support server at discord.gg/ynatEnRKWV. Feature requests are reviewed by the bot owner.' },
+  { q: 'How often is the bot updated?', a: 'Updates are released as features are developed and bugs are fixed. Check the Changelog tab for the latest updates.' },
+  { q: 'What do I do if the bot does not respond at all?', a: 'Check the Status tab. If the bot is offline wait for it to come back. If it shows online, make sure your DMs are open and try again.' },
+  { q: 'What do I do if the bot is online but giving errors?', a: 'Check the error message carefully. Most errors include a reason. If you cannot resolve it open a ticket at discord.gg/ynatEnRKWV.' },
+  { q: 'How do I speed up a backup on a large server?', a: 'Choose a fast compression format (1 or 2) and skip message capture. These are the biggest time factors.' },
+  { q: 'Does the number of members affect backup speed?', a: 'Yes. Saving member data for large servers takes longer. Skipping member data or using a blacklist speeds it up.' },
+  { q: 'Does the number of channels affect backup speed?', a: 'Yes. More channels mean more API calls. Blacklisting unused channels can reduce time.' },
+  { q: 'How many messages per channel does message capture save?', a: 'The bot captures as many recent messages as it can access through the Discord API per channel.' },
+  { q: 'Are captured messages restored when I run #$load?', a: 'No. Captured messages are stored in the backup file but Discord API does not support posting historical messages during a restore. They are preserved for reference only.' },
+  { q: 'Does the bot work with community servers?', a: 'Yes. Community servers are fully supported. Some community-specific features may require re-enabling after a restore.' },
+  { q: 'Does the bot support servers with custom roles created by other bots?', a: 'Bot-managed roles are backed up as data. The bots that created them need to be re-invited to reassociate with their managed roles.' },
+  { q: 'Does the bot save integration settings from other bots?', a: 'No. Third-party bot integrations are not included. Only the role and channel structure is saved.' },
+  { q: 'Does the bot preserve role colors?', a: 'Yes. Role colors including custom hex colors are saved and restored.' },
+  { q: 'Does the bot preserve channel ordering?', a: 'Yes. Channel and category positions are saved and the restore recreates the same order.' },
+  { q: 'Does the bot preserve role hierarchy?', a: 'Yes. Role positions in the hierarchy are saved and recreated during restore.' },
+  { q: 'Can I restore just the roles without touching channels?', a: 'No. #$load performs a full restore. There is no partial restore option.' },
+  { q: 'Does restoring overwrite my server icon?', a: 'No. Server icon is not included in the backup and will not be changed during a restore.' },
+  { q: 'What happens to existing members after a restore?', a: 'Existing members remain in the server but their roles are reset. If member data was included their roles can be re-assigned.' },
+  { q: 'Does a restore kick anyone from the server?', a: 'No. The restore process does not kick members. It only modifies channels, roles, and structure.' },
+  { q: 'Does a restore change server invite links?', a: 'Any existing invite links that pointed to deleted channels will become invalid. New invites will need to be created.' },
+  { q: 'Does a restore affect active voice calls?', a: 'Voice channels may be deleted and recreated during a restore. Active calls in those channels will be disconnected.' },
+  { q: 'What is the #$help command?', a: 'Run #$help in DMs with the bot to see a full list of commands. Run #$help <command> for detailed usage of a specific command.' },
+  { q: 'What is #$ping?', a: '#$ping checks the bot current latency to Discord. Useful for confirming the bot is alive.' },
+  { q: 'What is #$stats?', a: '#$stats shows live statistics about the bot including server count, backup count, and memory usage.' },
+  { q: 'What is #$uptime?', a: '#$uptime shows how long the current bot process has been running since its last restart.' },
+  { q: 'Can managers create backups?', a: 'Yes. Manager-level access includes the ability to run #$clone and #$autobackup in addition to save and restore commands.' },
+  { q: 'What is the difference between admin and manager access?', a: 'Managers can run most operational commands. Admins have additional access to moderation and exec commands. The bot owner has full unrestricted access.' },
+  { q: 'Can an admin promote someone to admin?', a: 'No. Only the owner can assign admin or manager access.' },
+  { q: 'Can a blocked user still view the public website?', a: 'Yes. The public website is accessible to anyone. Only bot commands are blocked for blocked accounts.' },
+  { q: 'What happens if a blocked user tries to run a command?', a: 'The bot will respond with a message indicating their account has been blocked.' },
+  { q: 'What is the difference between a server block and a user block?', a: 'A server block prevents any operations on that specific server. A user block prevents the blocked account from running any commands.' },
+  { q: 'Is there an appeal process for blocks?', a: 'Yes. Join discord.gg/ynatEnRKWV and open a ticket to appeal any block.' },
+  { q: 'What triggers a block?', a: 'Blocks are applied manually by the bot owner or admins for abuse, ToS violations, or at their discretion.' },
+  { q: 'Does the Try It tab on this website actually run commands?', a: 'No. The Try It tab is a simulation showing example conversations. It does not send any real commands to the bot.' },
+  { q: 'How accurate is the Try It simulation?', a: 'The Try It tab shows realistic example conversations based on actual bot responses. Exact wording may vary slightly from the live bot.' },
+  { q: 'What is the Commands tab on this website?', a: 'The Commands tab lists every available command with descriptions, syntax, and permission levels.' },
+  { q: 'What is the Status tab on this website?', a: 'The Status tab shows live bot health: uptime percentage, ping, last heartbeat, component statuses, and incident history.' },
+  { q: 'What is the Changelog tab on this website?', a: 'The Changelog tab shows the history of bot updates with version numbers, dates, and descriptions of what changed.' },
+  { q: 'What is the Home tab on this website?', a: 'The Home tab shows a summary of the bot with live stats, key features, and quick action buttons.' },
+  { q: 'What is the Admin tab on this website?', a: 'The Admin tab is a password-protected panel for admins and managers to view live bot data.' },
+  { q: 'What if I forget the admin password?', a: 'Contact the bot owner through the support server at discord.gg/ynatEnRKWV.' },
+  { q: 'Does the dashboard show the bot current ping?', a: 'Yes. The current ping is shown in the admin dashboard header area when the bot is online.' },
+  { q: 'What is maintenance mode?', a: 'Maintenance mode is a state where the bot is online but not accepting commands. It is used during updates or maintenance.' },
+  { q: 'What happens to commands sent during maintenance mode?', a: 'The bot will inform users that it is in maintenance mode and not process the command.' },
+  { q: 'What is the backup registry?', a: 'The backup registry is the internal record of which servers have backups, who owns them, and backup metadata. Visible in the admin Backups tab.' },
+  { q: 'How is the bot uptime percentage calculated?', a: 'Uptime is calculated as the percentage of monitored time during which the bot was online. Downtime events reduce this percentage.' },
+  { q: 'What is a downtime event?', a: 'A downtime event is a period when the bot was detected as offline, logged with a start time, duration, and reason.' },
+  { q: 'What is the green dot on the status page?', a: 'A green dot on a service card indicates the service is fully operational.' },
+  { q: 'What is a yellow dot on the status page?', a: 'A yellow dot indicates degraded performance — the service is running but experiencing some issues.' },
+  { q: 'What is a red dot on the status page?', a: 'A red dot indicates the service is offline or experiencing a major outage.' },
+  { q: 'What does the uptime bar chart on the status page show?', a: 'It shows one bar per day. Green bars are fully up days, yellow are partial, red are down days.' },
+  { q: 'Does the bot use any third-party services besides Discord?', a: 'The bot uses GitHub as a data sync mechanism for the dashboard. No other third-party services are used.' },
+  { q: 'What happens if GitHub is down?', a: 'The bot continues to function normally. Only the dashboard data sync is affected.' },
+  { q: 'What is data.json?', a: 'data.json is the bot main data file storing server info, backup metadata, access lists, schedules, and dashboard state. Synced to GitHub every 60 seconds.' },
+  { q: 'What is commands.json?', a: 'commands.json is a file in the GitHub repo used by the dashboard to queue actions for the bot. The bot polls it every 30 seconds.' },
+  { q: 'How does the bot handle corrupted data files?', a: 'The bot falls back to a .bak file if data.json becomes corrupted. Atomic writes via a .tmp file prevent partial writes.' },
+  { q: 'What is #$save vs #$save all?', a: '#$save <server_id> backs up a specific server. #$save all re-runs backups for all servers that already have at least one existing backup. Owner only.' },
+  { q: 'Does #$save all overwrite existing backups?', a: 'No. #$save all creates new backup entries alongside existing ones. Old backups remain until they expire or you delete them.' },
+  { q: 'Does the bot notify me when a backup expires?', a: 'Yes. The bot sends a DM warning when a backup is within 5 days of expiring.' },
+  { q: 'Can I extend a backup expiry without running a full backup?', a: 'No. Running #$save creates a fresh backup which resets the 30-day timer. There is no way to extend an existing one.' },
+  { q: 'Does the bot support incremental backups?', a: 'No. Every backup is a full snapshot of the server at that point in time.' },
+  { q: 'Does the bot deduplicate backup data?', a: 'No. Each backup is stored as a complete independent file.' },
+  { q: 'Does the bot support cross-account backup sharing?', a: 'Yes. Use #$sharebackup to grant another Discord account access to restore your server backups.' },
+  { q: 'Does the bot work with servers that have hundreds of channels?', a: 'Yes. Use the channel blacklist to skip unnecessary channels on very large servers.' },
+  { q: 'Does the bot work with servers that have thousands of members?', a: 'Yes. The bot handles large member counts. Enable member backup and the process will take longer for larger servers.' },
+  { q: 'Does the bot preserve forum channel tags?', a: 'Yes. Forum channel tag definitions are saved as part of the channel backup.' },
+  { q: 'Can I back up a server in read-only mode without making changes?', a: '#$save and #$verifybackup are read operations. They do not modify your server.' },
+  { q: 'Is there a sandbox mode for testing restores?', a: 'Create a spare server, run #$load to restore your backup onto it, and inspect the result before restoring onto a production server.' },
+  { q: 'What does the Quick Answers tab in the admin panel do?', a: 'It is a searchable database of support answers you can copy and paste to quickly respond to common questions.' },
+  { q: 'How do I search Quick Answers?', a: 'Type any keyword into the search box at the top of the Quick Answers tab. The list filters in real time.' },
+  { q: 'Can I copy a Quick Answer to clipboard?', a: 'Yes. Click the copy button on any Quick Answer entry to copy the answer text to your clipboard.' },
+  { q: 'What does the stale warning badge mean in the admin panel?', a: 'A server is marked stale if it has not been backed up in more than 7 days. Run a fresh backup to clear it.' },
+  { q: 'What does the estimated save time range mean in the admin panel?', a: 'The lower end assumes no message capture. The upper end assumes message history capture is enabled.' },
+  { q: 'What does the latest badge mean on a backup entry?', a: 'The green latest badge marks the most recent backup for a server.' },
+  { q: 'What does clicking copy del cmd do in the admin panel?', a: 'It copies the exact #$delbackup command for that backup to your clipboard so you can paste it directly into a DM with the bot.' },
+  { q: 'What does the Dashboard view in the admin panel show?', a: 'It shows a summary of live stats: total servers, backups, backup size, scheduled autobackups, and a list of all known guilds.' },
+  { q: 'What does the Servers view in the admin panel show?', a: 'It lists all servers with member counts, creation dates, backup status, and expandable details with estimated times and quick-copy commands.' },
+  { q: 'What does the Backups view in the admin panel show?', a: 'It lists all servers with stored backups, showing backup count, total size, member count, and expandable entries for each backup.' },
+  { q: 'What does the Access Control view in the admin panel show?', a: 'It shows all current admins, managers, whitelisted servers, blocked servers, whitelisted users, and blocked users.' },
+  { q: 'What timezone does the bot use for timestamps?', a: 'All timestamps in the bot and dashboard use UTC.' },
+  { q: 'What does the member count in the server list represent?', a: 'It is the member count at the time the dashboard data was last synced, which happens every 5 minutes.' },
+  { q: 'What is the heartbeat interval?', a: 'The bot sends a heartbeat signal every few minutes to confirm it is alive.' },
+  { q: 'Can I tell from the admin panel if a backup is encrypted?', a: 'Yes. Encrypted backups are marked in the backup list with an encryption indicator.' },
+  { q: 'Does the bot work if I have DMs disabled?', a: 'No. The bot communicates entirely through DMs. Enable DMs from non-friends to use the bot.' },
+  { q: 'Can I use the bot without joining the support server?', a: 'Yes. You do not need to join the support server to use the bot. It is just available for help.' },
+  { q: 'Does the bot have a help command?', a: 'Yes. Run #$help in DMs for a full list of commands, or #$help <command> for info on a specific command.' },
+  { q: 'Does the bot work on mobile?', a: 'Yes. You can DM the bot and use the website from any device including phones and tablets.' },
+  { q: 'Can I see the bot response time?', a: 'Run #$ping to check current latency. Most commands respond within 1 to 3 seconds.' },
+  { q: 'What happens if I send the same command twice quickly?', a: 'The bot processes commands sequentially. Sending the same command twice may queue two operations. Avoid duplicate commands during active operations.' },
+  { q: 'Does the bot work with slash commands?', a: 'No. All commands use the #$ prefix in DMs. Slash commands are not supported.' },
+  { q: 'Can I use the bot in a server channel instead of DMs?', a: 'No. The bot only responds to DMs. Commands in server channels are ignored.' },
+  { q: 'Does the bot send confirmation before destructive actions?', a: 'Yes. Commands that delete data or overwrite a server always ask for explicit confirmation before proceeding.' },
+  { q: 'What does the bot do if I reply with the wrong thing during a flow?', a: 'The bot will prompt you again or cancel the flow depending on the step. Read the bot message carefully before replying.' },
+  { q: 'Can I undo a command after confirming it?', a: 'No. Confirmed destructive actions like #$load and #$delbackup cannot be undone. Always back up before running them.' },
+  { q: 'Does the bot send me updates during a long backup?', a: 'The bot sends a start message and a completion message. There are no progress updates mid-backup.' },
+  { q: 'What does the bot do if it encounters an error mid-backup?', a: 'It stops the backup and sends you an error message. The partial backup is not saved.' },
+  { q: 'What does the bot do if it encounters an error mid-restore?', a: 'It stops the restore and reports the error. The server may be in a partial state. Check what was completed before running again.' },
+  { q: 'Is the bot available 24/7?', a: 'The bot aims for maximum uptime. Planned maintenance windows and occasional outages may occur. Check the Status tab for current availability.' },
+  { q: 'How do I stay informed about bot outages?', a: 'Check the Status tab on this website or join the support server at discord.gg/ynatEnRKWV for announcements.' },
+  { q: 'Does the bot have a maximum DM message length?', a: 'Discord has a 2000 character limit per message. The bot splits long responses into multiple messages automatically.' },
+  { q: 'Can I use the bot if I am a Discord minor account?', a: 'The bot does not check account age. Discord age requirements apply to the platform itself.' },
+  { q: 'Does using this bot violate Discord terms of service?', a: 'No. The bot uses the official Discord API and operates within Discord developer policy.' },
+  { q: 'Does the bot cache server data between operations?', a: 'Some server metadata is cached in data.json and refreshed during the dashboard sync every 5 minutes.' },
+  { q: 'What happens if I invite the bot but never run a command?', a: 'Nothing. The bot joins temporarily only when a command requires it. An idle invite does nothing.' },
+  { q: 'Can the bot back up a server it was previously banned from?', a: 'No. If the bot account is banned from a server it cannot join to perform any operations.' },
+  { q: 'Does the bot work with Discord servers that have IP location restrictions?', a: 'IP location restrictions on servers do not affect bot access as bots use their own connection separate from your IP.' },
+  { q: 'Does the bot work with private Discord servers?', a: 'Yes. The bot joins via invite link and does not require a public server.' },
+  { q: 'Can I set up the bot to notify me on a different platform?', a: 'No. Notifications are sent via Discord DMs only.' },
+  { q: 'What is the bot support server invite?', a: 'Join at discord.gg/ynatEnRKWV for support, announcements, and feature requests.' },
+  { q: 'How do I get started if I have never used a Discord bot before?', a: 'Enable Developer Mode in Discord settings, invite the bot, find your server ID by right-clicking your server, then DM the bot #$save <your server ID>.' },
+  { q: 'Is there a tutorial for new users?', a: 'The Try It tab on this website shows interactive examples of every command. The Commands tab has full documentation.' },
+  { q: 'What is the first thing I should do after inviting the bot?', a: 'Run #$save <server_id> in DMs to create your first backup. It takes under 5 minutes for most servers.' },
+  { q: 'What should I do after a successful first backup?', a: 'Set up #$autobackup to run on a regular schedule so future backups happen automatically.' },
+  { q: 'Can I back up a server that already has another backup bot?', a: 'Yes. Having other backup bots does not prevent this bot from working.' },
+  { q: 'Does this bot replace the need for other backup solutions?', a: 'This bot covers Discord server structure comprehensively. For message archiving or file backup you may still want additional tools.' },
 ];
 
 const PUBLIC_FAQ: FaqEntry[] = [
@@ -1161,11 +1426,11 @@ function StatCard({
 
   return (
     <div
+      className="stat-card"
       style={{
         background: 'var(--surface2)',
         border: '1px solid rgba(88,101,242,0.3)',
         borderRadius: 12,
-        padding: '20px 12px',
         textAlign: 'center',
         transition: 'border-color 0.3s',
         cursor: isLarge ? 'pointer' : 'default',
@@ -1181,9 +1446,9 @@ function StatCard({
       }}
     >
       <div
+        className="stat-value"
         style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 36,
           fontWeight: 700,
           color: '#5865F2',
           letterSpacing: -1,
@@ -1193,6 +1458,7 @@ function StatCard({
         {suffix}
       </div>
       <div
+        className="stat-label"
         style={{
           fontSize: 12,
           color: 'var(--muted)',
@@ -2067,7 +2333,49 @@ function QuickAnswerRow({ item, theme }: { item: FaqEntry; theme: Record<string,
   );
 }
 
-function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null }) {
+function MobilePhoneScroll({ children }: { children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const drag = React.useRef({ active: false, startY: 0, startScroll: 0 });
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    drag.current = { active: true, startY: e.clientY, startScroll: ref.current?.scrollTop ?? 0 };
+    document.body.style.userSelect = 'none';
+  };
+  const onMouseMove = React.useCallback((e: MouseEvent) => {
+    if (!drag.current.active || !ref.current) return;
+    ref.current.scrollTop = drag.current.startScroll - (e.clientY - drag.current.startY);
+  }, []);
+  const onMouseUp = React.useCallback(() => {
+    drag.current.active = false;
+    document.body.style.userSelect = '';
+  }, []);
+
+  React.useEffect(() => {
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+  }, [onMouseMove, onMouseUp]);
+
+  return (
+    <div
+      ref={ref}
+      onMouseDown={onMouseDown}
+      className="mobile-sim-scroll"
+      style={{
+        overflowY: 'scroll',
+        overflowX: 'hidden',
+        height: 720,
+        borderRadius: 12,
+        cursor: drag.current.active ? 'grabbing' : 'grab',
+        WebkitOverflowScrolling: 'touch' as any,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced, mobilePreview, setMobilePreview }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null; mobilePreview: boolean; setMobilePreview: (v: boolean) => void }) {
   const [authed, setAuthed] = useState(false);
   // account linking - persisted to localStorage
   const [linkedId, setLinkedId] = useState<string>(() => { try { return localStorage.getItem('admin_linked_id') || ''; } catch { return ''; } });
@@ -2517,16 +2825,17 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   );
 
   return (
-    <div style={{ display: 'flex', gap: 16 }}>
+    <div className="admin-layout" style={{ display: 'flex', gap: 16, flexDirection: mobilePreview ? 'column' : 'row' }}>
       {/* Sidebar */}
-      <div style={{ width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="admin-sidebar" style={{ width: mobilePreview ? '100%' : 180, flexShrink: 0, display: 'flex', flexDirection: mobilePreview ? 'row' : 'column', gap: 4, overflowX: mobilePreview ? 'scroll' : 'visible' }}>
         {ADMIN_VIEWS.filter(v => !v.ownerOnly || linkedId === OWNER_ID_STR).map(v => (
-          <button key={v.id} onClick={() => setView(v.id)} style={{
+          <button key={v.id} onClick={() => setView(v.id)} className="sidebar-btn" style={{
             padding: '9px 14px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer',
             background: view === v.id ? 'rgba(88,101,242,0.15)' : 'transparent',
             color: view === v.id ? '#5865F2' : theme.text,
-            fontWeight: view === v.id ? 700 : 400, fontSize: 13,
+            fontWeight: view === v.id ? 700 : 400, fontSize: mobilePreview ? 12 : 13,
             transition: 'background 0.15s', display: 'flex', alignItems: 'center', gap: 6,
+            flexShrink: mobilePreview ? 0 : undefined, whiteSpace: mobilePreview ? 'nowrap' : undefined,
           }}>
             <span>{v.icon} {v.label}</span>
             {v.id === 'logs' && (liveData?.error_log ?? []).length > 0 && (
@@ -2573,11 +2882,12 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
           }}>
             🔒 Lock
           </button>
+
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="admin-content" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {view === 'dashboard' && <>
           {/* Owner-only: one-time link bypass */}
@@ -3564,6 +3874,8 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try { return localStorage.getItem('darkMode') !== 'false'; } catch { return true; }
   });
+  const [mobilePreview, setMobilePreview] = useState(false);
+  const isOwner = (() => { try { return localStorage.getItem('admin_linked_id') === '1425423027335598090'; } catch { return false; } })();
   const [seenVersion, setSeenVersion] = useState<string>(
     () => localStorage.getItem('seenVersion') || ''
   );
@@ -3745,15 +4057,17 @@ export default function App() {
     [online, pingMs]
   );
 
-  return (
+  const pageContent = (
     <div
+      className={mobilePreview ? 'mobile-sim-inner' : undefined}
       style={{
-        minHeight: '100vh',
+        minHeight: mobilePreview ? '100%' : '100vh',
         background: theme.bg,
         color: theme.text,
         fontFamily: "'Segoe UI', system-ui, sans-serif",
         padding: '0 0 0',
         transition: 'background 0.2s, color 0.2s',
+        overflowX: mobilePreview ? 'hidden' : undefined,
       }}
     >
       <link
@@ -3778,12 +4092,77 @@ export default function App() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.15)'}; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: ${darkMode ? 'rgba(88,101,242,0.5)' : 'rgba(88,101,242,0.4)'}; }
+
+        /* Stat card defaults (desktop) */
+        .stat-card { padding: 20px 12px; }
+        .stat-value { font-size: 36px; }
+        .stat-label { font-size: 12px; }
+
+        /* Tab bar desktop — hide scrollbar */
+        .tab-bar { scrollbar-width: none; }
+        .tab-bar::-webkit-scrollbar { display: none; }
+
+        @media (max-width: 600px) {
+          .page-wrap { padding: 0 12px !important; }
+          .site-header { padding: 24px 0 20px !important; }
+          .hero-title { font-size: 26px !important; letter-spacing: -1px !important; }
+          .hero-subtitle { font-size: 12px !important; }
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; margin: 20px 0 !important; gap: 8px !important; }
+          .stat-card { padding: 10px 6px !important; border-radius: 8px !important; }
+          .stat-value { font-size: 20px !important; }
+          .stat-label { font-size: 9px !important; letter-spacing: 1px !important; }
+          .tab-bar { scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.5) transparent !important; }
+          .tab-bar::-webkit-scrollbar { height: 3px !important; display: block !important; }
+          .tab-bar::-webkit-scrollbar-track { background: transparent !important; }
+          .tab-bar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.5) !important; border-radius: 3px !important; }
+          .admin-layout { flex-direction: column !important; gap: 10px !important; }
+          .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: auto !important; flex-wrap: nowrap !important; gap: 4px !important; padding-bottom: 2px !important; scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.4) transparent !important; box-sizing: border-box !important; }
+          .admin-sidebar::-webkit-scrollbar { height: 3px !important; display: block !important; }
+          .admin-sidebar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.4) !important; border-radius: 3px !important; }
+          .sidebar-btn { flex: none !important; flex-shrink: 0 !important; white-space: nowrap !important; font-size: 12px !important; padding: 7px 12px !important; width: auto !important; }
+          .admin-sidebar > div:last-child { display: none !important; }
+          .admin-content { min-width: 0 !important; max-width: 100% !important; }
+        }
+
+        /* Mobile sim scroll */
+        .mobile-sim-scroll::-webkit-scrollbar { display: none; }
+        .mobile-sim-scroll { scrollbar-width: none; }
+
+        /* Full-page mobile simulation — applied when inside phone frame */
+        .mobile-sim-inner { overflow-x: hidden !important; }
+        .mobile-sim-inner .page-wrap { padding: 0 12px !important; }
+        .mobile-sim-inner .site-header { padding: 24px 0 20px !important; }
+        .mobile-sim-inner .hero-title { font-size: 26px !important; letter-spacing: -1px !important; }
+        .mobile-sim-inner .hero-subtitle { font-size: 12px !important; }
+        .mobile-sim-inner .stats-grid { grid-template-columns: repeat(2, 1fr) !important; margin: 20px 0 !important; gap: 8px !important; }
+        .mobile-sim-inner .stat-card { padding: 10px 6px !important; border-radius: 8px !important; }
+        .mobile-sim-inner .stat-value { font-size: 20px !important; }
+        .mobile-sim-inner .stat-label { font-size: 9px !important; letter-spacing: 1px !important; }
+
+        /* Tab bar — force horizontal scroll, prevent overflow */
+        .mobile-sim-inner .tab-bar { overflow-x: scroll !important; flex-wrap: nowrap !important; padding: 3px !important; scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.5) transparent !important; max-width: 100% !important; box-sizing: border-box !important; }
+        .mobile-sim-inner .tab-bar::-webkit-scrollbar { height: 3px !important; display: block !important; }
+        .mobile-sim-inner .tab-bar::-webkit-scrollbar-track { background: transparent !important; }
+        .mobile-sim-inner .tab-bar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.5) !important; border-radius: 3px !important; }
+
+        .mobile-sim-inner .tab-btn { flex: none !important; flex-shrink: 0 !important; flex-grow: 0 !important; font-size: 10px !important; padding: 6px 10px !important; white-space: nowrap !important; width: auto !important; }
+
+        /* Admin panel — sidebar becomes horizontal scroll row */
+        .mobile-sim-inner .admin-layout { flex-direction: column !important; gap: 10px !important; }
+        .mobile-sim-inner .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: scroll !important; flex-wrap: nowrap !important; gap: 4px !important; padding-bottom: 4px !important; scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.4) transparent !important; box-sizing: border-box !important; }
+        .mobile-sim-inner .admin-sidebar::-webkit-scrollbar { height: 3px !important; display: block !important; }
+        .mobile-sim-inner .admin-sidebar::-webkit-scrollbar-track { background: transparent !important; }
+        .mobile-sim-inner .admin-sidebar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.4) !important; border-radius: 3px !important; }
+        .mobile-sim-inner .sidebar-btn { flex: none !important; flex-shrink: 0 !important; white-space: nowrap !important; font-size: 12px !important; padding: 7px 12px !important; width: auto !important; }
+        .mobile-sim-inner .admin-sidebar > div:last-child { display: none !important; }
+        .mobile-sim-inner .admin-content { min-width: 0 !important; max-width: 100% !important; }
       `}</style>
 
       <Toast message={toast.message} visible={toast.visible} />
 
       {/* Header */}
       <div
+        className="site-header"
         style={{
           background: theme.headerBg,
           borderBottom: `1px solid ${theme.headerBorder}`,
@@ -3852,6 +4231,7 @@ export default function App() {
           </div>
           <h1
             key={darkMode ? 'dark' : 'light'}
+            className="hero-title"
             style={{
               margin: 0,
               fontSize: 42,
@@ -3870,6 +4250,7 @@ export default function App() {
             Discord Backup Bot
           </h1>
           <p
+            className="hero-subtitle"
             style={{
               margin: '10px 0 0',
               color: 'var(--muted)',
@@ -4018,10 +4399,11 @@ export default function App() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px' }}>
+      <div className="page-wrap" style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px' }}>
         {/* Stats */}
         <div
           ref={statsRef}
+          className="stats-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -4035,23 +4417,26 @@ export default function App() {
         </div>
 
         {/* Tabs */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 4,
-            marginBottom: 20,
-            background: theme.tabBg,
-            borderRadius: 8,
-            padding: 4,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div style={{ position: 'relative', marginBottom: 20 }}>
+          <div className="tab-bar"
+            style={{
+              display: 'flex',
+              gap: 4,
+              background: theme.tabBg,
+              borderRadius: 8,
+              padding: '4px 4px 2px',
+              flexWrap: mobilePreview ? 'nowrap' : 'wrap',
+              overflowX: mobilePreview ? 'scroll' : 'visible',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => { setActiveTab(t.id); if (t.id === 'uptime') fetchData(); }}
+              className="tab-btn"
               style={{
-                flex: 1,
+                flex: mobilePreview ? '0 0 auto' : 1,
                 padding: '8px 6px',
                 borderRadius: 6,
                 border: 'none',
@@ -4085,6 +4470,7 @@ export default function App() {
               )}
             </button>
           ))}
+          </div>
         </div>
 
         {/* COMMANDS */}
@@ -4663,7 +5049,7 @@ export default function App() {
         {activeTab === 'tryit' && <TryItTab darkMode={darkMode} theme={theme} />}
 
         {/* ADMIN */}
-        {activeTab === 'admin' && <AdminPanel theme={theme} darkMode={darkMode} liveData={liveData} onRefresh={handleRefresh} refreshing={refreshing} lastSynced={lastSynced} />}
+        {activeTab === 'admin' && <AdminPanel theme={theme} darkMode={darkMode} liveData={liveData} onRefresh={handleRefresh} refreshing={refreshing} lastSynced={lastSynced} mobilePreview={mobilePreview} setMobilePreview={setMobilePreview} />}
 
         {/* HOW IT WORKS */}
         {activeTab === 'architecture' && (
@@ -5119,6 +5505,38 @@ export default function App() {
         </div>
       </div>
 
+      {/* Owner-only mobile preview toggle */}
+      {isOwner && !mobilePreview && (
+        <button
+          onClick={() => setMobilePreview(true)}
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(20,21,26,0.92)',
+            border: '1px solid rgba(88,101,242,0.5)',
+            color: '#5865F2',
+            borderRadius: 20,
+            padding: '8px 18px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 20px rgba(88,101,242,0.25)',
+            zIndex: 998,
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: 0.3,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          📱 Preview Mobile
+        </button>
+      )}
+
       {/* Scroll to top */}
       {showScrollTop && (
         <button
@@ -5155,4 +5573,79 @@ export default function App() {
       )}
     </div>
   );
+
+  if (mobilePreview) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0d0e11',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        fontFamily: "'Segoe UI', system-ui, sans-serif",
+        overflowY: 'auto',
+        padding: '28px 0 60px',
+      }}>
+        {/* Top label */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <span style={{ color: '#555', fontSize: 11, fontFamily: 'monospace', letterSpacing: 1 }}>📱 MOBILE PREVIEW — 390px</span>
+        </div>
+
+        {/* Phone shell */}
+        <div style={{
+          width: 406,
+          borderRadius: 52,
+          background: '#1a1a1a',
+          boxShadow: '0 0 0 2px #2a2a2a, 0 0 0 6px #1a1a1a, 0 0 0 8px #333, 0 40px 100px rgba(0,0,0,0.9)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '0 8px',
+          position: 'relative',
+        }}>
+          {/* Top bar with notch */}
+          <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' }}>
+            <div style={{ width: 120, height: 30, background: '#111', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#222', border: '1px solid #333' }} />
+              <div style={{ width: 60, height: 6, borderRadius: 3, background: '#1e1e1e' }} />
+            </div>
+            {/* Status bar time */}
+            <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', color: '#888', fontSize: 11, fontWeight: 700 }}>9:41</span>
+            <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: '#888', fontSize: 10 }}>▐▐▐ 🔋</span>
+          </div>
+
+          {/* Screen */}
+          <MobilePhoneScroll>
+            {pageContent}
+          </MobilePhoneScroll>
+
+          {/* Home bar */}
+          <div style={{ height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 120, height: 5, background: '#333', borderRadius: 4 }} />
+          </div>
+        </div>
+
+        {/* Exit button below phone */}
+        <button
+          onClick={() => setMobilePreview(false)}
+          style={{
+            marginTop: 28,
+            background: 'rgba(237,66,69,0.15)',
+            border: '1px solid rgba(237,66,69,0.4)',
+            color: '#ED4245',
+            borderRadius: 20,
+            padding: '8px 22px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: 0.3,
+          }}
+        >
+          ✕ Exit Preview
+        </button>
+      </div>
+    );
+  }
+
+  return pageContent;
 }
