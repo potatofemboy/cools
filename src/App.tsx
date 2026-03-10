@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const DATA_URL =
   'https://api.github.com/repos/potatofemboy/discord-data/contents/data.json';
@@ -3493,27 +3492,39 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               if (chartData.length < 2) return null;
               const totalKb = allBackups.reduce((s, b) => s + (b.size_kb ?? 0), 0);
               const totalStr = totalKb >= 1024*1024 ? `${(totalKb/1024/1024).toFixed(2)} GB` : totalKb >= 1024 ? `${(totalKb/1024).toFixed(1)} MB` : `${totalKb} KB`;
+              const W = 600, H = 80, pad = 4;
+              const maxKb = Math.max(...chartData.map(d => d.kb), 1);
+              const pts = chartData.map((d, i) => {
+                const x = pad + (i / Math.max(chartData.length - 1, 1)) * (W - pad * 2);
+                const y = H - pad - ((d.kb / maxKb) * (H - pad * 2));
+                return `${x},${y}`;
+              }).join(' ');
+              const firstX = pad, lastX = W - pad;
+              const firstY = H - pad - ((chartData[0].kb / maxKb) * (H - pad * 2));
+              const lastY  = H - pad - ((chartData[chartData.length-1].kb / maxKb) * (H - pad * 2));
+              const fillPts = `${firstX},${H - pad} ${pts} ${lastX},${H - pad}`;
+              const maxLabel = maxKb >= 1024 ? `${(maxKb/1024).toFixed(1)}MB` : `${maxKb}KB`;
+              const firstLabel = chartData[0]?.date ?? '';
+              const lastLabel  = chartData[chartData.length-1]?.date ?? '';
               return (
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>📊 Backup size over time</span>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>📊 Cumulative backup size over time</span>
                     <span style={{ color: '#5865F2', fontWeight: 600 }}>Total: {totalStr}</span>
                   </div>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="sizeGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#5865F2" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#5865F2" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
-                      <XAxis dataKey="date" tick={{ fontSize: 9, fill: theme.muted }} interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 9, fill: theme.muted }} tickFormatter={v => v >= 1024 ? `${(v/1024).toFixed(0)}MB` : `${v}KB`} />
-                      <Tooltip formatter={(v: any) => [v >= 1024 ? `${(v/1024).toFixed(1)} MB` : `${v} KB`, 'Size']} labelStyle={{ color: theme.text }} contentStyle={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 11 }} />
-                      <Area type="monotone" dataKey="kb" stroke="#5865F2" strokeWidth={2} fill="url(#sizeGrad)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 80, display: 'block' }}>
+                    <defs>
+                      <linearGradient id="sizeGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#5865F2" stopOpacity={0.35}/>
+                        <stop offset="100%" stopColor="#5865F2" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <polygon points={fillPts} fill="url(#sizeGrad)" />
+                    <polyline points={pts} fill="none" stroke="#5865F2" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                    <text x={pad} y={10} fontSize={8} fill={theme.muted}>{maxLabel}</text>
+                    <text x={pad} y={H - 2} fontSize={8} fill={theme.muted}>{firstLabel}</text>
+                    <text x={W - pad} y={H - 2} fontSize={8} fill={theme.muted} textAnchor="end">{lastLabel}</text>
+                  </svg>
                 </div>
               );
             })()}
