@@ -92,6 +92,8 @@ interface LiveData {
   guild_snapshot?: Record<string, GuildInfo>;
   user_cache?: Record<string, UserInfo>;
   backup_inventory?: Record<string, BackupEntry[]>; // server_id -> list of backups
+  dash_login_log?: { user_id: string; username: string; method: string; ts: number }[];
+  error_log?: any[];
   autobackup_schedules?: Record<string, {
     interval_hours: number;
     last_run_ts: number;
@@ -2861,7 +2863,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         setPwError(false);
         setPw('');
         if (linkedId) {
-          setAuthed(true);
+              setAuthed(true);
         } else {
           setLinkStep('linking');
         }
@@ -3806,6 +3808,30 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         </>}
 
         {view === 'logs' && <>
+          {card(<>
+            <div style={{ fontWeight: 700, color: theme.text, marginBottom: 10 }}>
+              🔐 Login Log ({(liveData?.dash_login_log ?? []).length})
+            </div>
+            {(liveData?.dash_login_log ?? []).length === 0 && (
+              <div style={{ color: theme.muted, fontSize: 13 }}>No logins recorded yet.</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 280, overflowY: 'auto', scrollbarWidth: 'thin' }}>
+              {(liveData?.dash_login_log ?? []).map((entry, i) => {
+                const d = new Date(entry.ts * 1000);
+                const timeStr = d.toLocaleString();
+                const methodColor = entry.method === 'code' ? '#57F287' : entry.method === 'bypass' ? '#EB459E' : '#5865F2';
+                const methodLabel = entry.method === 'code' ? 'link code' : entry.method === 'bypass' ? 'bypass' : 'session';
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 4px', borderBottom: i < (liveData?.dash_login_log?.length ?? 0) - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12 }}>
+                    <span style={{ fontFamily: 'monospace', color: theme.muted, fontSize: 10, minWidth: 140, flexShrink: 0 }}>{timeStr}</span>
+                    <span style={{ color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.username}</span>
+                    <code style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>{entry.user_id}</code>
+                    <span style={{ background: `${methodColor}22`, color: methodColor, fontSize: 10, padding: '1px 6px', borderRadius: 4, border: `1px solid ${methodColor}44`, flexShrink: 0 }}>{methodLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
           {card(<>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <div style={{ fontWeight: 700, color: theme.text, flex: 1 }}>
