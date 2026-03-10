@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const DATA_URL =
   'https://api.github.com/repos/potatofemboy/discord-data/contents/data.json';
@@ -2639,7 +2640,8 @@ function MobilePhoneScroll({ children }: { children: React.ReactNode }) {
 }
 
 function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced, mobilePreview, setMobilePreview }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null; mobilePreview: boolean; setMobilePreview: (v: boolean) => void }) {
-  const [authed, setAuthed] = useState(false);
+  // auto-auth if already linked
+  const [authed, setAuthed] = useState<boolean>(() => { try { return !!localStorage.getItem('admin_linked_id'); } catch { return false; } });
   // account linking - persisted to localStorage
   const [linkedId, setLinkedId] = useState<string>(() => { try { return localStorage.getItem('admin_linked_id') || ''; } catch { return ''; } });
   const [linkStep, setLinkStep] = useState<'idle' | 'linking' | 'code'>('idle');
@@ -3473,6 +3475,48 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             {liveData && backupServerIds.length === 0 && (
               <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: '#5865F2' }}>#$save &lt;server_id&gt;</code> to create one.</div>
             )}
+            {backupServerIds.length > 0 && (() => {
+              // Build daily cumulative size chart data from all backups
+              const allBackups = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
+              const byDate: Record<string, number> = {};
+              allBackups.forEach(b => {
+                if (!b.timestamp_iso && !b.timestamp_str) return;
+                const d = (b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str));
+                if (isNaN(d.getTime())) return;
+                const key = d.toISOString().slice(0, 10);
+                byDate[key] = (byDate[key] ?? 0) + (b.size_kb ?? 0);
+              });
+              // Make cumulative
+              const sorted = Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b));
+              let running = 0;
+              const chartData = sorted.map(([date, kb]) => { running += kb; return { date: date.slice(5), kb: Math.round(running) }; });
+              if (chartData.length < 2) return null;
+              const totalKb = allBackups.reduce((s, b) => s + (b.size_kb ?? 0), 0);
+              const totalStr = totalKb >= 1024*1024 ? `${(totalKb/1024/1024).toFixed(2)} GB` : totalKb >= 1024 ? `${(totalKb/1024).toFixed(1)} MB` : `${totalKb} KB`;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>📊 Backup size over time</span>
+                    <span style={{ color: '#5865F2', fontWeight: 600 }}>Total: {totalStr}</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={100}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="sizeGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#5865F2" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#5865F2" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
+                      <XAxis dataKey="date" tick={{ fontSize: 9, fill: theme.muted }} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 9, fill: theme.muted }} tickFormatter={v => v >= 1024 ? `${(v/1024).toFixed(0)}MB` : `${v}KB`} />
+                      <Tooltip formatter={(v: any) => [v >= 1024 ? `${(v/1024).toFixed(1)} MB` : `${v} KB`, 'Size']} labelStyle={{ color: theme.text }} contentStyle={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 11 }} />
+                      <Area type="monotone" dataKey="kb" stroke="#5865F2" strokeWidth={2} fill="url(#sizeGrad)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
             {backupServerIds.length > 0 && (
               <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
                 <input
