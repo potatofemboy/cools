@@ -3578,22 +3578,31 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               );
             })()}
             {backupServerIds.length > 0 && (() => {
-              // Build per-hour storage-added chart (one point per hour bucket, oldest→newest)
+              // Build per-hour storage-added chart using deltas (new storage only, not full backup size)
               const allBackups2 = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
               const withTime2 = allBackups2.filter(b => b.timestamp_iso || b.timestamp_str).map(b => {
                 const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
                 if (isNaN(d.getTime())) return null;
                 const hourKey = new Date(Math.floor(d.getTime() / 3600000) * 3600000);
-                return { kb: b.size_kb ?? 0, hourKey, t: d.getTime(), label: b.timestamp_str ?? '' };
-              }).filter(Boolean).sort((a: any, b: any) => a.t - b.t) as { kb: number; hourKey: Date; t: number; label: string }[];
+                return { kb: b.size_kb ?? 0, sid: b.sid, hourKey, t: d.getTime(), label: b.timestamp_str ?? '' };
+              }).filter(Boolean).sort((a: any, b: any) => a.t - b.t) as { kb: number; sid: string; hourKey: Date; t: number; label: string }[];
               if (withTime2.length < 2) return null;
 
-              // Bucket by hour
+              // Compute delta per backup vs previous backup for same server
+              const lastKbBySid: Record<string, number> = {};
+              const withDelta = withTime2.map(b => {
+                const prev = lastKbBySid[b.sid] ?? 0;
+                const delta = Math.max(0, b.kb - prev); // ignore deletions going negative
+                lastKbBySid[b.sid] = b.kb;
+                return { ...b, deltaKb: delta };
+              });
+
+              // Bucket deltas by hour
               const byHour: Record<string, { kb: number; label: string; t: number }> = {};
-              withTime2.forEach(b => {
+              withDelta.forEach(b => {
                 const key = b.hourKey.toISOString();
                 if (!byHour[key]) byHour[key] = { kb: 0, label: b.label, t: b.hourKey.getTime() };
-                byHour[key].kb += b.kb;
+                byHour[key].kb += b.deltaKb;
               });
 
               // Fill all hours between first and last with 0 if missing
