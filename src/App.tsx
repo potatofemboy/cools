@@ -3938,7 +3938,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               <div style={{ color: theme.muted, fontSize: 13 }}>No logins recorded yet.</div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 280, overflowY: 'auto', scrollbarWidth: 'thin' }}>
-              {(liveData?.dash_login_log ?? []).map((entry, i) => {
+              {(liveData?.dash_login_log ?? []).map((entry: any, i: number) => {
                 const d = new Date(entry.ts * 1000);
                 const timeStr = d.toLocaleString();
                 const methodColor = entry.method === 'code' ? '#57F287' : entry.method === 'bypass' ? '#EB459E' : 'var(--primary)';
