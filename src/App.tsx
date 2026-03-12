@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const DATA_URL =
   'https://api.github.com/repos/potatofemboy/discord-data/contents/data.json';
@@ -129,12 +130,12 @@ const PERM_COLORS: Record<string, string> = {
   Owner: '#ED4245',
   Manager: '#EB459E',
   Admin: '#FEE75C',
-  'Server Owner': '#5865F2',
+  'Server Owner': 'var(--primary)',
 };
 const COMMANDS: Record<string, CommandGroupData> = {
   'Backup & Restore': {
     icon: '💾',
-    color: '#5865F2',
+    color: 'var(--primary)',
     cmds: [
       {
         name: 'save',
@@ -310,13 +311,45 @@ const COMMANDS: Record<string, CommandGroupData> = {
 
 const STATS: StatItem[] = [
   { label: 'Days Live', value: DAYS_LIVE, suffix: '' },
-  { label: 'Lines Of Code', value: 11000, suffix: '+' },
+  { label: 'Lines Of Code', value: 13000, suffix: '+' },
   { label: 'Commands', value: 20, suffix: '+' },
   { label: 'Backups Stored', value: 50, suffix: '+' },
   { label: 'Helper Bots', value: 5, suffix: '' },
 ];
 
 const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v1.1.7',
+    date: 'Mar 12, 2026',
+    tag: 'dashboard',
+    color: '#00BCD4',
+    changes: [
+      'Status page: added live ping history sparkline with gradient fill and avg line',
+      'Status page: added response time gauge bar (Excellent / Good / Fair / Slow / Poor)',
+      'Status page: added live uptime streak clock (dd hh mm ss ticking counter)',
+      'Status page: replaced flat incident list with a vertical timeline with dots, badges, and down/up timestamps',
+      'Status page: incident history shows "No incidents recorded" with celebration message if clean',
+      'Recent incidents (last 7 days) now highlighted with a yellow "recent" badge and glow dot',
+    ],
+  },
+  {
+    version: 'v1.1.6',
+    date: 'Mar 12, 2026',
+    tag: 'dashboard',
+    color: '#9C27B0',
+    changes: [
+      'Replaced dark/light mode toggle with a ⚙️ Settings panel (click the gear icon)',
+      'Settings panel: background color picker with presets and custom color wheel',
+      'Settings panel: primary color picker with presets and custom color wheel',
+      'Settings panel: font size control (Small / Normal / Large)',
+      'Settings panel: reduced motion toggle to disable animations',
+      'Settings panel: compact stats toggle',
+      'Background color changes now apply instantly via CSS variable with zero React re-renders',
+      'Title gradient now updates live when changing primary color',
+      'Fixed admin/backups chart crash caused by missing effectivePrimary prop',
+      'Header grid lines and fade now use the primary color',
+    ],
+  },
   {
     version: 'v1.1.5',
     date: 'Mar 7, 2026',
@@ -365,7 +398,7 @@ const CHANGELOG: ChangelogEntry[] = [
     version: 'v1.1.2',
     date: 'Mar 6, 2026',
     tag: 'minor',
-    color: '#5865F2',
+    color: 'var(--primary)',
     changes: [
       'Added dark/light mode toggle, persisted across sessions',
       'Added Try It tab with animated multi-turn command previews',
@@ -1518,7 +1551,7 @@ const PERMISSIONS = [
   },
   {
     level: 'Server Owner',
-    color: '#5865F2',
+    color: 'var(--primary)',
     desc: 'Can back up and restore their own server only (20+ members to save)',
     cmds: 'Backup commands',
   },
@@ -1596,12 +1629,12 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
         pointerEvents: 'none',
         zIndex: 9999,
         background: '#1e2030',
-        border: '1px solid rgba(88,101,242,0.5)',
+        border: '1px solid rgba(var(--primary-rgb),0.5)',
         borderRadius: 8,
         padding: '9px 18px',
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 12,
-        color: '#5865F2',
+        color: 'var(--primary)',
         whiteSpace: 'nowrap',
         boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
       }}
@@ -1676,11 +1709,18 @@ function StatCard({
     try { return localStorage.getItem('stat-compact') === 'true'; } catch { return false; }
   });
 
+  useEffect(() => {
+    const handler = (e: Event) => setCompact((e as CustomEvent).detail);
+    window.addEventListener('toggle-compact', handler);
+    return () => window.removeEventListener('toggle-compact', handler);
+  }, []);
+
   const toggle = () => {
     if (!isLarge) return;
     const next = !compact;
     setCompact(next);
     try { localStorage.setItem('stat-compact', String(next)); } catch {}
+    window.dispatchEvent(new CustomEvent('toggle-compact', { detail: next }));
   };
 
   const display = isLarge && compact
@@ -1692,7 +1732,7 @@ function StatCard({
       className="stat-card"
       style={{
         background: 'var(--surface2)',
-        border: '1px solid rgba(88,101,242,0.3)',
+        border: '1px solid rgba(var(--primary-rgb),0.3)',
         borderRadius: 12,
         textAlign: 'center',
         transition: 'border-color 0.3s',
@@ -1701,11 +1741,11 @@ function StatCard({
       onClick={toggle}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.borderColor =
-          'rgba(88,101,242,0.8)';
+          'rgba(var(--primary-rgb),0.8)';
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLDivElement).style.borderColor =
-          'rgba(88,101,242,0.3)';
+          'rgba(var(--primary-rgb),0.3)';
       }}
     >
       <div
@@ -1713,7 +1753,7 @@ function StatCard({
         style={{
           fontFamily: "'JetBrains Mono', monospace",
           fontWeight: 700,
-          color: '#5865F2',
+          color: 'var(--primary)',
           letterSpacing: -1,
         }}
       >
@@ -1969,7 +2009,7 @@ function FaqItem({
     <div
       style={{
         border: `1px solid ${
-          isOpen ? 'rgba(88,101,242,0.5)' : 'var(--border)'
+          isOpen ? 'rgba(var(--primary-rgb),0.5)' : 'var(--border)'
         }`,
         borderRadius: 10,
         overflow: 'hidden',
@@ -1986,7 +2026,7 @@ function FaqItem({
           cursor: 'pointer',
           userSelect: 'none',
           background: isOpen
-            ? 'rgba(88,101,242,0.08)'
+            ? 'rgba(var(--primary-rgb),0.08)'
             : 'var(--surface)',
           transition: 'background 0.2s',
         }}
@@ -2640,7 +2680,7 @@ function MobilePhoneScroll({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced, mobilePreview, setMobilePreview }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null; mobilePreview: boolean; setMobilePreview: (v: boolean) => void }) {
+function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSynced, mobilePreview, setMobilePreview, effectivePrimary }: { theme: Record<string,string>; darkMode: boolean; liveData: any; onRefresh: () => Promise<void>; refreshing: boolean; lastSynced: number | null; mobilePreview: boolean; setMobilePreview: (v: boolean) => void; effectivePrimary: string }) {
   // auto-auth if already linked
   const [authed, setAuthed] = useState<boolean>(() => { try { return !!localStorage.getItem('admin_linked_id'); } catch { return false; } });
   // account linking - persisted to localStorage
@@ -2830,7 +2870,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
     </div>
   );
 
-  const statBox = (label: string, value: string | number, icon: string, color = '#5865F2') => (
+  const statBox = (label: string, value: string | number, icon: string, color = 'var(--primary)') => (
     <div style={{ background: theme.surface2, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '14px 18px', flex: 1, minWidth: 120 }}>
       <div style={{ fontSize: 22 }}>{icon}</div>
       <div style={{ fontSize: 26, fontWeight: 800, color, fontFamily: 'monospace', marginTop: 6 }}>{value}</div>
@@ -2943,7 +2983,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         <div style={{ fontSize: 40 }}>💬</div>
         <div style={{ fontSize: 18, fontWeight: 700, color: theme.text }}>Verify Your Account</div>
         <div style={{ fontSize: 13, color: theme.muted, maxWidth: 400, textAlign: 'center', lineHeight: 1.7 }}>
-          <strong style={{ color: theme.text }}>1.</strong> DM the bot <code style={{ background: 'rgba(88,101,242,0.15)', color: '#5865F2', padding: '1px 6px', borderRadius: 4 }}>#$linkdash</code> to get a code.<br />
+          <strong style={{ color: theme.text }}>1.</strong> DM the bot <code style={{ background: 'rgba(var(--primary-rgb),0.15)', color: 'var(--primary)', padding: '1px 6px', borderRadius: 4 }}>#$linkdash</code> to get a code.<br />
           <strong style={{ color: theme.text }}>2.</strong> Hit <strong style={{ color: theme.text }}>Refresh</strong> to load it.<br />
           <strong style={{ color: theme.text }}>3.</strong> Enter the code and hit <strong style={{ color: theme.text }}>Verify</strong>.<br />
           <span style={{ fontSize: 11 }}>Linking as: <strong style={{ color: theme.text }}>{name}</strong></span>
@@ -2980,7 +3020,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             </button>
             <button
               onClick={attemptVerifyCode}
-              style={{ flex: 2, padding: '9px 0', borderRadius: 8, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+              style={{ flex: 2, padding: '9px 0', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
             >
               Verify
             </button>
@@ -3025,7 +3065,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             />
             <button
               onClick={attemptLink}
-              style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+              style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
             >
               Next
             </button>
@@ -3080,7 +3120,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         <button
           onClick={attemptLogin}
           disabled={!storedHash || pwChecking}
-          style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, cursor: (!storedHash || pwChecking) ? 'not-allowed' : 'pointer', fontSize: 13, opacity: (!storedHash || pwChecking) ? 0.6 : 1 }}
+          style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, cursor: (!storedHash || pwChecking) ? 'not-allowed' : 'pointer', fontSize: 13, opacity: (!storedHash || pwChecking) ? 0.6 : 1 }}
         >
           {pwChecking ? '…' : 'Unlock'}
         </button>
@@ -3097,8 +3137,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         {ADMIN_VIEWS.filter(v => !v.ownerOnly || linkedId === OWNER_ID_STR).map(v => (
           <button key={v.id} onClick={() => setView(v.id)} className="sidebar-btn" style={{
             padding: '9px 14px', borderRadius: 8, border: 'none', textAlign: 'left', cursor: 'pointer',
-            background: view === v.id ? 'rgba(88,101,242,0.15)' : 'transparent',
-            color: view === v.id ? '#5865F2' : theme.text,
+            background: view === v.id ? 'rgba(var(--primary-rgb),0.15)' : 'transparent',
+            color: view === v.id ? 'var(--primary)' : theme.text,
             fontWeight: view === v.id ? 700 : 400, fontSize: mobilePreview ? 12 : 13,
             transition: 'background 0.15s', display: 'flex', alignItems: 'center', gap: 6,
             flexShrink: mobilePreview ? 0 : undefined, whiteSpace: mobilePreview ? 'nowrap' : undefined,
@@ -3117,8 +3157,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             disabled={refreshing}
             style={{
               padding: '8px 14px', borderRadius: 8, border: 'none', width: '100%',
-              background: refreshing ? 'rgba(88,101,242,0.15)' : '#5865F2',
-              color: refreshing ? '#5865F2' : '#fff',
+              background: refreshing ? 'rgba(var(--primary-rgb),0.15)' : 'var(--primary)',
+              color: refreshing ? 'var(--primary)' : '#fff',
               fontSize: 12, cursor: refreshing ? 'not-allowed' : 'pointer',
               fontWeight: 700, transition: 'background 0.2s',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -3174,7 +3214,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 {bypass && !bypassActive && <span style={{ fontSize: 11, color: theme.muted, background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, padding: '2px 8px', borderRadius: 6 }}>Expired</span>}
               </div>
               <div style={{ fontSize: 12, color: theme.muted, marginBottom: 10, lineHeight: 1.5 }}>
-                Pre-authorize a Discord ID to skip DM verification once. Run <code style={{ color: '#5865F2' }}>#$linkbypass &lt;user_id&gt;</code> in DMs with the bot. They just enter their Discord ID  -  no code needed.
+                Pre-authorize a Discord ID to skip DM verification once. Run <code style={{ color: 'var(--primary)' }}>#$linkbypass &lt;user_id&gt;</code> in DMs with the bot. They just enter their Discord ID  -  no code needed.
               </div>
               {bypassActive
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(87,242,135,0.07)', border: '1px solid rgba(87,242,135,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
@@ -3220,7 +3260,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             {statBox('Bot In', allGuilds.length, '🌐')}
             {statBox('Backups', Object.values(backupInv).reduce((n, arr) => n + arr.length, 0), '💾', '#57F287')}
             {statBox('Servers Backed Up', backupServerIds.length, '🗄️', '#57F287')}
-            {statBox('Managers', realManagers.length, '🔷', '#5865F2')}
+            {statBox('Managers', realManagers.length, '🔷', 'var(--primary)')}
             {statBox('Admins', realAdmins.length, '👤', '#EB459E')}
             {statBox('Blocked', blGuilds.length + blUsers.length, '🚫', '#ED4245')}
           </div>
@@ -3237,13 +3277,13 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                   <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
                     {g.icon_url
                       ? <img src={g.icon_url} style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
-                      : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(88,101,242,0.2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>?</div>
+                      : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(var(--primary-rgb),0.2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>?</div>
                     }
                     <span style={{ fontWeight: 700, color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
                     <span
                       onClick={() => copyId(g.id)}
                       title="Copy server ID"
-                      style={{ color: copiedId === g.id ? 'var(--green)' : theme.muted, fontFamily: 'monospace', fontSize: 10, cursor: 'pointer', padding: '1px 4px', borderRadius: 3, background: 'rgba(88,101,242,0.07)', userSelect: 'none' }}
+                      style={{ color: copiedId === g.id ? 'var(--green)' : theme.muted, fontFamily: 'monospace', fontSize: 10, cursor: 'pointer', padding: '1px 4px', borderRadius: 3, background: 'rgba(var(--primary-rgb),0.07)', userSelect: 'none' }}
                     >{copiedId === g.id ? '✓' : g.id}</span>
                     <span style={{ color: theme.muted }}>👥 {g.member_count.toLocaleString()}</span>
                     <span style={{ color: theme.muted }}>💬 {g.channel_count}</span>
@@ -3333,9 +3373,9 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                   { id: 'storage_desc', label: '💿 Storage' },
                 ] as { id: typeof serverSort; label: string }[]).map(opt => (
                   <button key={opt.id} onClick={() => setServerSort(opt.id)} style={{
-                    padding: '4px 9px', borderRadius: 6, border: `1px solid ${serverSort === opt.id ? '#5865F2' : theme.border}`,
-                    background: serverSort === opt.id ? 'rgba(88,101,242,0.15)' : 'transparent',
-                    color: serverSort === opt.id ? '#5865F2' : theme.muted,
+                    padding: '4px 9px', borderRadius: 6, border: `1px solid ${serverSort === opt.id ? 'var(--primary)' : theme.border}`,
+                    background: serverSort === opt.id ? 'rgba(var(--primary-rgb),0.15)' : 'transparent',
+                    color: serverSort === opt.id ? 'var(--primary)' : theme.muted,
                     fontSize: 11, cursor: 'pointer', fontWeight: serverSort === opt.id ? 700 : 400,
                     transition: 'all 0.15s',
                   }}>{opt.label}</button>
@@ -3381,12 +3421,12 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 const restoreEst = estimateRestoreTime(g);
                 return (
                   <div key={g.id} onClick={() => setSelectedServer(isOpen ? null : g.id)}
-                    style={{ background: theme.surface2, border: `1px solid ${isOpen ? '#5865F2' : theme.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s' }}>
+                    style={{ background: theme.surface2, border: `1px solid ${isOpen ? 'var(--primary)' : theme.border}`, borderRadius: 10, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s' }}>
                     {/* Row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
                       {g.icon_url
                         ? <img src={g.icon_url} style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
-                        : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(88,101,242,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, color: theme.muted }}>?</div>
+                        : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(var(--primary-rgb),0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, color: theme.muted }}>?</div>
                       }
                       <span style={{ fontWeight: 700, color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
                       {isBlocked && <span style={{ fontSize: 10, background: 'rgba(237,66,69,0.15)', color: '#ED4245', border: '1px solid rgba(237,66,69,0.3)', borderRadius: 4, padding: '1px 5px' }}>🚫 Blocked</span>}
@@ -3404,7 +3444,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${theme.border}` }}>
                         {(saveEst || restoreEst) && (
                           <div style={{ display: 'flex', gap: 16, padding: '8px 0 4px', fontSize: 11, color: theme.muted }}>
-                            {saveEst && <span>⏱ Est. save: <span style={{ color: '#5865F2', fontWeight: 600 }}>{saveEst}</span></span>}
+                            {saveEst && <span>⏱ Est. save: <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{saveEst}</span></span>}
                             {restoreEst && <span>🔄 Est. restore: <span style={{ color: '#EB459E', fontWeight: 600 }}>{restoreEst}</span></span>}
                             {saveEst && <span title="Lower end = no message capture. Upper end = with message history capture enabled.">* msg capture varies</span>}
                           </div>
@@ -3418,7 +3458,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                             { label: 'Created',  value: new Date(g.created_at).toLocaleDateString() },
                           ].map(item => (
                             <div key={item.label} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 7, padding: '8px 12px', minWidth: 90 }}>
-                              <div style={{ fontSize: 17, fontWeight: 800, color: '#5865F2', fontFamily: 'monospace' }}>{item.value}</div>
+                              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>{item.value}</div>
                               <div style={{ fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{item.label}</div>
                             </div>
                           ))}
@@ -3435,7 +3475,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                           <div style={{ fontSize: 12, color: theme.muted, marginBottom: 10 }}>
                             🔗 Backup shared with: {shared.map(uid => {
                               const u = resolveUser(uid);
-                              return <span key={uid} style={{ color: '#5865F2', marginRight: 6 }}>{u.label}</span>;
+                              return <span key={uid} style={{ color: 'var(--primary)', marginRight: 6 }}>{u.label}</span>;
                             })}
                           </div>
                         )}
@@ -3444,7 +3484,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                             <code
                               key={cmd}
                               onClick={e => { e.stopPropagation(); copyId(`${cmd} ${g.id}`); }}
-                              style={{ background: copiedId === `${cmd} ${g.id}` ? 'rgba(87,242,135,0.15)' : 'rgba(88,101,242,0.1)', color: copiedId === `${cmd} ${g.id}` ? 'var(--green)' : '#5865F2', padding: '3px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer', userSelect: 'none' }}
+                              style={{ background: copiedId === `${cmd} ${g.id}` ? 'rgba(87,242,135,0.15)' : 'rgba(var(--primary-rgb),0.1)', color: copiedId === `${cmd} ${g.id}` ? 'var(--green)' : 'var(--primary)', padding: '3px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer', userSelect: 'none' }}
                             >{copiedId === `${cmd} ${g.id}` ? '✓ copied' : `${cmd} ${g.id}`}</code>
                           ))}
                         </div>
@@ -3474,59 +3514,134 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             </div>
             {!liveData && <div style={{ color: theme.muted, fontSize: 13 }}>Waiting for data &mdash; hit Refresh.</div>}
             {liveData && backupServerIds.length === 0 && (
-              <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: '#5865F2' }}>#$save &lt;server_id&gt;</code> to create one.</div>
+              <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: 'var(--primary)' }}>#$save &lt;server_id&gt;</code> to create one.</div>
             )}
             {backupServerIds.length > 0 && (() => {
-              // Build daily cumulative size chart data from all backups
+              // Build per-backup cumulative size chart (one point per backup, sorted oldest→newest)
               const allBackups = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
-              const byDate: Record<string, number> = {};
-              allBackups.forEach(b => {
-                if (!b.timestamp_iso && !b.timestamp_str) return;
-                const d = (b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str));
-                if (isNaN(d.getTime())) return;
-                const key = d.toISOString().slice(0, 10);
-                byDate[key] = (byDate[key] ?? 0) + (b.size_kb ?? 0);
-              });
-              // Make cumulative
-              const sorted = Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b));
+              const withTime = allBackups.filter(b => b.timestamp_iso || b.timestamp_str).map(b => {
+                const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
+                return { ...b, t: isNaN(d.getTime()) ? 0 : d.getTime(), dateLabel: isNaN(d.getTime()) ? '' : d.toISOString().slice(5, 10) };
+              }).filter(b => b.t > 0).sort((a, b) => a.t - b.t);
+              if (withTime.length < 2) return null;
+              // Track per-server backup index so we can show #1, #2, etc.
+              const perServerCount: Record<string, number> = {};
               let running = 0;
-              const chartData = sorted.map(([date, kb]) => { running += kb; return { date: date.slice(5), kb: Math.round(running) }; });
-              if (chartData.length < 2) return null;
-              const totalKb = allBackups.reduce((s, b) => s + (b.size_kb ?? 0), 0);
+              const chartData = withTime.map(b => {
+                const prev = running;
+                running += (b.size_kb ?? 0);
+                perServerCount[b.sid] = (perServerCount[b.sid] ?? 0) + 1;
+                const backupNum = perServerCount[b.sid];
+                const serverName = guildSnap[b.sid]?.name ?? null;
+                const serverLabel = serverName ? `${serverName} (${b.sid})` : b.sid;
+                return { date: b.dateLabel, kb: Math.round(running), delta: Math.round(running - prev), label: b.timestamp_str ?? b.dateLabel, serverLabel, backupNum };
+              });
+              const totalKb = running;
               const totalStr = totalKb >= 1024*1024 ? `${(totalKb/1024/1024).toFixed(2)} GB` : totalKb >= 1024 ? `${(totalKb/1024).toFixed(1)} MB` : `${totalKb} KB`;
-              const W = 600, H = 80, pad = 4;
-              const maxKb = Math.max(...chartData.map(d => d.kb), 1);
-              const pts = chartData.map((d, i) => {
-                const x = pad + (i / Math.max(chartData.length - 1, 1)) * (W - pad * 2);
-                const y = H - pad - ((d.kb / maxKb) * (H - pad * 2));
-                return `${x},${y}`;
-              }).join(' ');
-              const firstX = pad, lastX = W - pad;
-              const firstY = H - pad - ((chartData[0].kb / maxKb) * (H - pad * 2));
-              const lastY  = H - pad - ((chartData[chartData.length-1].kb / maxKb) * (H - pad * 2));
-              const fillPts = `${firstX},${H - pad} ${pts} ${lastX},${H - pad}`;
-              const maxLabel = maxKb >= 1024 ? `${(maxKb/1024).toFixed(1)}MB` : `${maxKb}KB`;
-              const firstLabel = chartData[0]?.date ?? '';
-              const lastLabel  = chartData[chartData.length-1]?.date ?? '';
+              const fmtKb = (kb: number) => kb >= 1024*1024 ? `${(kb/1024/1024).toFixed(2)} GB` : kb >= 1024 ? `${(kb/1024).toFixed(1)} MB` : `${kb} KB`;
               return (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
                     <span>📊 Cumulative backup size over time</span>
-                    <span style={{ color: '#5865F2', fontWeight: 600 }}>Total: {totalStr}</span>
+                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Total: {totalStr}</span>
                   </div>
-                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 80, display: 'block' }}>
-                    <defs>
-                      <linearGradient id="sizeGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#5865F2" stopOpacity={0.35}/>
-                        <stop offset="100%" stopColor="#5865F2" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <polygon points={fillPts} fill="url(#sizeGrad)" />
-                    <polyline points={pts} fill="none" stroke="#5865F2" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-                    <text x={pad} y={10} fontSize={8} fill={theme.muted}>{maxLabel}</text>
-                    <text x={pad} y={H - 2} fontSize={8} fill={theme.muted}>{firstLabel}</text>
-                    <text x={W - pad} y={H - 2} fontSize={8} fill={theme.muted} textAnchor="end">{lastLabel}</text>
-                  </svg>
+                  <ResponsiveContainer width="100%" height={110}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <defs>
+                        <linearGradient id="sizeGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={effectivePrimary} stopOpacity={0.4} />
+                          <stop offset="100%" stopColor={effectivePrimary} stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="date" hide />
+                      <YAxis hide domain={[0, 'auto']} />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: `1px solid ${effectivePrimary}`, borderRadius: 6, fontSize: 11, lineHeight: 1.8 }}
+                        labelStyle={{ display: 'none' }}
+                        formatter={(value: number, name: string, props: any) => {
+                          const p = props.payload;
+                          return [
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{fmtKb(value)}</span>
+                              <span style={{ color: '#aaa', fontSize: 10 }}>+{fmtKb(p.delta)} this backup</span>
+                              <span style={{ color: '#ccc', fontSize: 10 }}>{p.serverLabel}</span>
+                              <span style={{ color: '#888', fontSize: 10 }}>#{p.backupNum} &nbsp;·&nbsp; {p.label}</span>
+                            </div>, ''
+                          ];
+                        }}
+                      />
+                      <Area type="monotone" dataKey="kb" stroke={effectivePrimary} strokeWidth={2} fill="url(#sizeGrad)" dot={false} activeDot={{ r: 4, fill: effectivePrimary, stroke: '#fff', strokeWidth: 1.5 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Build per-hour storage-added chart (one point per hour bucket, oldest→newest)
+              const allBackups2 = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
+              const withTime2 = allBackups2.filter(b => b.timestamp_iso || b.timestamp_str).map(b => {
+                const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
+                if (isNaN(d.getTime())) return null;
+                const hourKey = new Date(Math.floor(d.getTime() / 3600000) * 3600000);
+                return { kb: b.size_kb ?? 0, hourKey, t: d.getTime(), label: b.timestamp_str ?? '' };
+              }).filter(Boolean).sort((a: any, b: any) => a.t - b.t) as { kb: number; hourKey: Date; t: number; label: string }[];
+              if (withTime2.length < 2) return null;
+
+              // Bucket by hour
+              const byHour: Record<string, { kb: number; label: string; t: number }> = {};
+              withTime2.forEach(b => {
+                const key = b.hourKey.toISOString();
+                if (!byHour[key]) byHour[key] = { kb: 0, label: b.label, t: b.hourKey.getTime() };
+                byHour[key].kb += b.kb;
+              });
+
+              // Fill all hours between first and last with 0 if missing
+              const hourEntries = Object.entries(byHour).sort(([a], [b]) => a.localeCompare(b));
+              const firstHourT = new Date(hourEntries[0][0]).getTime();
+              const lastHourT  = new Date(hourEntries[hourEntries.length - 1][0]).getTime();
+              const hourMap: Record<number, number> = {};
+              hourEntries.forEach(([k, v]) => { hourMap[new Date(k).getTime()] = v.kb; });
+              const filledHours: { t: number; kb: number; label: string; date: string }[] = [];
+              for (let t = firstHourT; t <= lastHourT; t += 3600000) {
+                const kb = hourMap[t] ?? 0;
+                const d = new Date(t);
+                filledHours.push({ t, kb: Math.round(kb), label: d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC', date: d.toISOString().slice(5, 13) });
+              }
+              if (filledHours.length < 2) return null;
+
+              const fmtKb2 = (kb: number) => kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
+              const avgKb = Math.round(filledHours.reduce((s, h) => s + h.kb, 0) / filledHours.length);
+
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>⚡ Storage added per hour</span>
+                    <span style={{ color: '#57F287', fontWeight: 600 }}>Avg: {fmtKb2(avgKb)}/hr</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={110}>
+                    <AreaChart data={filledHours} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <defs>
+                        <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#57F287" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#57F287" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="date" hide />
+                      <YAxis hide domain={[0, 'auto']} />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: '1px solid #57F287', borderRadius: 6, fontSize: 11 }}
+                        labelStyle={{ color: '#888', fontSize: 9 }}
+                        formatter={(value: number) => value > 0
+                          ? [<span style={{ color: '#57F287', fontWeight: 600 }}>{fmtKb2(value)} added</span>, '']
+                          : [<span style={{ color: '#aaa' }}>No backup this hour</span>, '']
+                        }
+                        labelFormatter={(label: string, payload: any[]) => <span style={{ color: '#888', fontSize: 9 }}>{payload?.[0]?.payload?.label ?? label}</span>}
+                      />
+                      <Area type="monotone" dataKey="kb" stroke="#57F287" strokeWidth={2} fill="url(#rateGrad)" dot={false} activeDot={{ r: 4, fill: '#57F287', stroke: '#fff', strokeWidth: 1.5 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               );
             })()}
@@ -3585,6 +3700,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                   }
                 }
 
+                const grandTotalKb = backupServerIds.reduce((sum, sid) => sum + (backupInv[sid] ?? []).reduce((s: number, b: any) => s + (b.size_kb ?? 0), 0), 0);
+
                 return filtered.map(sid => {
                 const g          = guildSnap[sid];
                 const rawOwnerId = String(backupOwners[sid] ?? '');
@@ -3600,12 +3717,12 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 const closestEntry = closestIdx >= 0 ? entries[closestIdx] : null;
                 const closestNum   = closestIdx >= 0 ? entries.length - closestIdx : null;
                 return (
-                  <div key={sid} style={{ border: `1px solid ${isOpen ? '#5865F2' : stale ? 'rgba(254,231,92,0.4)' : theme.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s' }}>
+                  <div key={sid} style={{ border: `1px solid ${isOpen ? 'var(--primary)' : stale ? 'rgba(254,231,92,0.4)' : theme.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s' }}>
                     <div onClick={() => setSelectedServer(isOpen ? null : sid)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: isOpen ? 'rgba(88,101,242,0.06)' : theme.surface2 }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', background: isOpen ? 'rgba(var(--primary-rgb),0.06)' : theme.surface2 }}>
                       {g?.icon_url
                         ? <img src={g.icon_url} style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0 }} />
-                        : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(88,101,242,0.15)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: theme.muted }}>?</div>
+                        : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(var(--primary-rgb),0.15)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: theme.muted }}>?</div>
                       }
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, color: theme.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -3620,7 +3737,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       {ownerInfo && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, flexShrink: 0 }}>
                           {ownerInfo.avatar && <img src={ownerInfo.avatar} style={{ width: 15, height: 15, borderRadius: '50%' }} />}
-                          <span style={{ color: theme.muted }}>Owner: <span style={{ color: '#5865F2' }}>{ownerInfo.label}</span></span>
+                          <span style={{ color: theme.muted }}>Owner: <span style={{ color: 'var(--primary)' }}>{ownerInfo.label}</span></span>
                         </div>
                       )}
                       {g && <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>&#128101; {g.member_count.toLocaleString()}</span>}
@@ -3628,10 +3745,15 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                         const totalKb = entries.reduce((sum: number, b: any) => sum + (b.size_kb ?? 0), 0);
                         if (!totalKb) return null;
                         const display = totalKb >= 1024 ? `${(totalKb / 1024).toFixed(1)} MB` : `${totalKb} KB`;
-                        return <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>💿 {display}</span>;
+                        const pct = grandTotalKb > 0 ? ((totalKb / grandTotalKb) * 100).toFixed(1) : null;
+                        return (
+                          <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
+                            💿 {display}{pct && <span style={{ color: 'var(--primary)', marginLeft: 4, fontSize: 10 }}>({pct}%)</span>}
+                          </span>
+                        );
                       })()}
                       {stale && <span style={{ fontSize: 10, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', border: '1px solid rgba(254,231,92,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>⚠️ {days}d ago</span>}
-                      <span style={{ background: 'rgba(88,101,242,0.12)', color: '#5865F2', fontSize: 11, padding: '2px 7px', borderRadius: 4, flexShrink: 0, fontWeight: 700 }}>
+                      <span style={{ background: 'rgba(var(--primary-rgb),0.12)', color: 'var(--primary)', fontSize: 11, padding: '2px 7px', borderRadius: 4, flexShrink: 0, fontWeight: 700 }}>
                         {entries.length} backup{entries.length !== 1 ? 's' : ''}
                       </span>
                       {shared.length > 0 && (
@@ -3643,8 +3765,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                     </div>
                     {/* Closest backup preview  -  shown when card is collapsed and hours-ago is active */}
                     {!isOpen && targetMs !== null && closestEntry && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', fontSize: 12, borderTop: `1px solid ${theme.border}`, background: 'rgba(88,101,242,0.07)' }}>
-                        <span style={{ fontSize: 10, color: '#5865F2', background: 'rgba(88,101,242,0.15)', border: '1px solid rgba(88,101,242,0.4)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>closest</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', fontSize: 12, borderTop: `1px solid ${theme.border}`, background: 'rgba(var(--primary-rgb),0.07)' }}>
+                        <span style={{ fontSize: 10, color: 'var(--primary)', background: 'rgba(var(--primary-rgb),0.15)', border: '1px solid rgba(var(--primary-rgb),0.4)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>closest</span>
                         <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0 }}>{closestEntry.timestamp_str}</span>
                         <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
                           {closestEntry.size_kb != null ? (closestEntry.size_kb >= 1024 ? `${(closestEntry.size_kb / 1024).toFixed(1)} MB` : `${closestEntry.size_kb} KB`) : '--'}
@@ -3662,8 +3784,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                       <div style={{ borderTop: `1px solid ${theme.border}` }}>
                         {/* Estimated times */}
                         {(saveEst || restoreEst) && (
-                          <div style={{ display: 'flex', gap: 16, padding: '8px 14px', background: 'rgba(88,101,242,0.04)', fontSize: 11, color: theme.muted, borderBottom: `1px solid ${theme.border}` }}>
-                            {saveEst && <span>⏱ Est. save: <span style={{ color: '#5865F2', fontWeight: 600 }}>{saveEst}</span></span>}
+                          <div style={{ display: 'flex', gap: 16, padding: '8px 14px', background: 'rgba(var(--primary-rgb),0.04)', fontSize: 11, color: theme.muted, borderBottom: `1px solid ${theme.border}` }}>
+                            {saveEst && <span>⏱ Est. save: <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{saveEst}</span></span>}
                             {restoreEst && <span>🔄 Est. restore: <span style={{ color: '#EB459E', fontWeight: 600 }}>{restoreEst}</span></span>}
                             {g && <span style={{ color: theme.muted }}>({g.member_count.toLocaleString()} members, {g.role_count} roles, {g.channel_count} channels)</span>}
                             {saveEst && <span title="Lower end = no message capture. Upper end = with message history capture enabled.">* msg capture varies</span>}
@@ -3674,11 +3796,11 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                             const isClosest = targetMs !== null && i === closestIdx;
                             const bNum = entries.length - i;
                             return (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: isClosest ? 'rgba(88,101,242,0.10)' : theme.surface, outline: isClosest ? '2px solid rgba(88,101,242,0.5)' : 'none', outlineOffset: -2 }}>
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', fontSize: 12, borderBottom: i < entries.length - 1 ? `1px solid ${theme.border}` : 'none', background: isClosest ? 'rgba(var(--primary-rgb),0.10)' : theme.surface, outline: isClosest ? '2px solid rgba(var(--primary-rgb),0.5)' : 'none', outlineOffset: -2 }}>
                               <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 11, flexShrink: 0, minWidth: 160 }}>{b.timestamp_str}</span>
                               <code style={{ color: theme.muted, fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.thread_name}</code>
                               {i === 0 && <span style={{ fontSize: 10, color: 'var(--green)', background: 'rgba(87,242,135,0.1)', border: '1px solid rgba(87,242,135,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>latest</span>}
-                              {isClosest && <span style={{ fontSize: 10, color: '#5865F2', background: 'rgba(88,101,242,0.15)', border: '1px solid rgba(88,101,242,0.4)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>closest</span>}
+                              {isClosest && <span style={{ fontSize: 10, color: 'var(--primary)', background: 'rgba(var(--primary-rgb),0.15)', border: '1px solid rgba(var(--primary-rgb),0.4)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>closest</span>}
                               <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>
                                 {b.size_kb != null ? (b.size_kb >= 1024 ? `${(b.size_kb / 1024).toFixed(1)} MB` : `${b.size_kb} KB`) : '--'}
                               </span>
@@ -3710,7 +3832,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
           {card(<>
             <div style={{ fontWeight: 700, marginBottom: 14, color: theme.text }}>⏰ Autobackup Schedules ({Object.keys(autobackupSchedules).length})</div>
             {Object.keys(autobackupSchedules).length === 0 && (
-              <div style={{ color: theme.muted, fontSize: 13 }}>No autobackup schedules set. Use <code style={{ color: '#5865F2' }}>#$autobackup {'<server_id> <hours>'}</code> to create one.</div>
+              <div style={{ color: theme.muted, fontSize: 13 }}>No autobackup schedules set. Use <code style={{ color: 'var(--primary)' }}>#$autobackup {'<server_id> <hours>'}</code> to create one.</div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(autobackupSchedules).map(([sid, sched]) => {
@@ -3758,7 +3880,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
           {card(<>
             <div style={{ fontWeight: 700, marginBottom: 10, color: theme.text, fontSize: 13 }}>&#128269; Quick Diff</div>
             <div style={{ color: theme.muted, fontSize: 12 }}>
-              Run <code style={{ background: 'rgba(88,101,242,0.1)', color: '#5865F2', padding: '1px 6px', borderRadius: 4 }}>#$diff {'<server_id> <n1> <n2>'}</code> in Discord to compare any two backups side by side.
+              Run <code style={{ background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)', padding: '1px 6px', borderRadius: 4 }}>#$diff {'<server_id> <n1> <n2>'}</code> in Discord to compare any two backups side by side.
             </div>
           </>)}
         </>}
@@ -3770,8 +3892,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {accessList.map((a, i) => {
                 const u = resolveUser(a.id);
-                const roleColor = a.role === 'Owner' ? '#ED4245' : a.role === 'Manager' ? '#5865F2' : 'var(--green)';
-                const roleBg    = a.role === 'Owner' ? 'rgba(237,66,69,0.12)' : a.role === 'Manager' ? 'rgba(88,101,242,0.12)' : 'rgba(87,242,135,0.12)';
+                const roleColor = a.role === 'Owner' ? '#ED4245' : a.role === 'Manager' ? 'var(--primary)' : 'var(--green)';
+                const roleBg    = a.role === 'Owner' ? 'rgba(237,66,69,0.12)' : a.role === 'Manager' ? 'rgba(var(--primary-rgb),0.12)' : 'rgba(87,242,135,0.12)';
                 return (
                   <div key={i} style={{ background: theme.surface2, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
                     {u.avatar
@@ -3792,8 +3914,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 );
               })}
             </div>
-            <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(88,101,242,0.05)', borderRadius: 8, fontSize: 12, color: theme.muted }}>
-              Use <code style={{ color: '#5865F2' }}>#$addadmin / #$removeadmin</code> to manage admins · <code style={{ color: '#5865F2' }}>#$sharebackup</code> to grant per-server access
+            <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(var(--primary-rgb),0.05)', borderRadius: 8, fontSize: 12, color: theme.muted }}>
+              Use <code style={{ color: 'var(--primary)' }}>#$addadmin / #$removeadmin</code> to manage admins · <code style={{ color: 'var(--primary)' }}>#$sharebackup</code> to grant per-server access
             </div>
           </>)}
           {(wlGuilds.length > 0 || wlUsers.length > 0 || blGuilds.length > 0 || blUsers.length > 0) && card(<>
@@ -3819,7 +3941,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               {(liveData?.dash_login_log ?? []).map((entry, i) => {
                 const d = new Date(entry.ts * 1000);
                 const timeStr = d.toLocaleString();
-                const methodColor = entry.method === 'code' ? '#57F287' : entry.method === 'bypass' ? '#EB459E' : '#5865F2';
+                const methodColor = entry.method === 'code' ? '#57F287' : entry.method === 'bypass' ? '#EB459E' : 'var(--primary)';
                 const methodLabel = entry.method === 'code' ? 'link code' : entry.method === 'bypass' ? 'bypass' : 'session';
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 4px', borderBottom: i < (liveData?.dash_login_log?.length ?? 0) - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12 }}>
@@ -3861,7 +3983,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               }).map((e: any, i: number, arr: any[]) => (
                 <div key={i} style={{ display: 'flex', gap: 10, padding: '9px 0', borderBottom: i < arr.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <span style={{ color: theme.muted, fontFamily: 'monospace', fontSize: 10, flexShrink: 0, width: 140 }}>{e.ts ? new Date(e.ts).toLocaleString() : ' - '}</span>
-                  <span style={{ color: '#5865F2', fontFamily: 'monospace', fontWeight: 700, flexShrink: 0 }}>#{e.cmd ?? '?'}</span>
+                  <span style={{ color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 700, flexShrink: 0 }}>#{e.cmd ?? '?'}</span>
                   {e.args && <span style={{ color: theme.muted, fontSize: 11, flexShrink: 0 }}>{e.args}</span>}
                   <span style={{ color: '#ED4245', flex: 1, minWidth: 200 }}>{e.error ?? 'Unknown error'}</span>
                   <span style={{ color: theme.muted, fontSize: 10, flexShrink: 0 }}>{e.user ?? e.user_id ?? ' - '}</span>
@@ -3934,7 +4056,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                   />
                   <button
                     onClick={() => { if (githubTokenInput.trim()) { const t = githubTokenInput.trim(); setGithubToken(t); try { localStorage.setItem('gh_pat', t); } catch {} setGithubTokenInput(''); } }}
-                    style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: '#5865F2', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                    style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
                   >Save</button>
                 </div>
             }
@@ -4093,9 +4215,9 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
           {TRY_IT_EXAMPLES.map((e, i) => (
             <button key={i} onClick={() => setSelected(i)} style={{
               padding: '7px 14px', borderRadius: 7,
-              border: `1px solid ${i === selected ? '#5865F2' : theme.border}`,
-              background: i === selected ? 'rgba(88,101,242,0.15)' : theme.surface2,
-              color: i === selected ? '#5865F2' : theme.text,
+              border: `1px solid ${i === selected ? 'var(--primary)' : theme.border}`,
+              background: i === selected ? 'rgba(var(--primary-rgb),0.15)' : theme.surface2,
+              color: i === selected ? 'var(--primary)' : theme.text,
               fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
               cursor: 'pointer', transition: 'all 0.2s',
             }}>
@@ -4105,12 +4227,12 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
         </div>
       </div>
 
-      <div style={{ background: '#0d0f12', border: '1px solid rgba(88,101,242,0.25)', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ padding: '10px 16px', background: 'rgba(88,101,242,0.1)', borderBottom: '1px solid rgba(88,101,242,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#0d0f12', border: '1px solid rgba(var(--primary-rgb),0.25)', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ padding: '10px 16px', background: 'rgba(var(--primary-rgb),0.1)', borderBottom: '1px solid rgba(var(--primary-rgb),0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#72767d' }}>Discord, #bot-commands</span>
           <button onClick={run} style={{
             padding: '5px 14px', borderRadius: 6, border: 'none',
-            background: isRunning ? 'rgba(88,101,242,0.3)' : '#5865F2',
+            background: isRunning ? 'rgba(var(--primary-rgb),0.3)' : 'var(--primary)',
             color: '#fff', fontFamily: "'JetBrains Mono', monospace",
             fontSize: 11, cursor: isRunning ? 'default' : 'pointer',
             fontWeight: 700, transition: 'background 0.2s',
@@ -4123,7 +4245,7 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
           {/* Initial user command */}
           {typed.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#5865F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>🥔</div>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>🥔</div>
               <div>
                 <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>potato</span>
                 <span style={{ color: '#72767d', fontSize: 11, marginLeft: 8 }}>{TIME}</span>
@@ -4141,7 +4263,7 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#5865F2,#EB459E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>💾</div>
                 <div>
                   <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>Server Save/Load</span>
-                  <span style={{ background: '#5865F2', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 3, marginLeft: 6, fontWeight: 700 }}>APP</span>
+                  <span style={{ background: 'var(--primary)', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 3, marginLeft: 6, fontWeight: 700 }}>APP</span>
                   <span style={{ color: '#72767d', fontSize: 11, marginLeft: 8 }}>{TIME}</span>
                   <div style={{ marginTop: 4 }}>
                     {(turn as any).lines.map((line: string, i: number) => (
@@ -4155,7 +4277,7 @@ function TryItTab({ darkMode, theme }: { darkMode: boolean; theme: Record<string
             );
             return (
               <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#5865F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>🥔</div>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>🥔</div>
                 <div>
                   <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>potato</span>
                   <span style={{ color: '#72767d', fontSize: 11, marginLeft: 8 }}>{TIME}</span>
@@ -4184,6 +4306,7 @@ export default function App() {
   const [faqSearch, setFaqSearch] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [openService, setOpenService] = useState<number | null>(null);
+  const [pingHistory, setPingHistory] = useState<{ t: number; ms: number | null }[]>([]);
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -4218,6 +4341,38 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try { return localStorage.getItem('darkMode') !== 'false'; } catch { return true; }
   });
+  const [bgColor, setBgColor] = useState<string>(() => {
+    try { return localStorage.getItem('theme_bg_color') || ''; } catch { return ''; }
+  });
+  const [fontSize, setFontSize] = useState<'small' | 'normal' | 'large'>(() => {
+    try { return (localStorage.getItem('theme_font_size') as any) || 'normal'; } catch { return 'normal'; }
+  });
+  const [reducedMotion, setReducedMotion] = useState<boolean>(() => {
+    try { return localStorage.getItem('theme_reduced_motion') === 'true'; } catch { return false; }
+  });
+  const [compact, setCompact] = useState<boolean>(() => {
+    try { return localStorage.getItem('stat-compact') === 'true'; } catch { return false; }
+  });
+  const [primaryColor, setPrimaryColor] = useState<string>(() => {
+    try { return localStorage.getItem('primaryColor') || '#5865F2'; } catch { return '#5865F2'; }
+  });
+  const [showThemePanel, setShowThemePanel] = useState(false);
+  const themePanelRef = useRef<HTMLDivElement>(null);
+
+  // Convert hex color to RGB triplet for rgba() usage
+  const hexToRgb = (hex: string) => {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `${r},${g},${b}`;
+  };
+  const mixHex = (hex1: string, hex2: string, t: number) => {
+    const r = Math.round(parseInt(hex1.slice(1,3),16) * (1-t) + parseInt(hex2.slice(1,3),16) * t);
+    const g = Math.round(parseInt(hex1.slice(3,5),16) * (1-t) + parseInt(hex2.slice(3,5),16) * t);
+    const b = Math.round(parseInt(hex1.slice(5,7),16) * (1-t) + parseInt(hex2.slice(5,7),16) * t);
+    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+  };
+
+  const effectivePrimary = primaryColor;
+  const primaryRgb = hexToRgb(effectivePrimary);
   const [mobilePreview, setMobilePreview] = useState(false);
   const isOwner = (() => { try { return localStorage.getItem('admin_linked_id') === '1425423027335598090'; } catch { return false; } })();
   const [seenVersion, setSeenVersion] = useState<string>(
@@ -4244,32 +4399,93 @@ export default function App() {
     return () => clearInterval(iv);
   }, [fetchData]);
 
+  // Close theme panel on outside click
+  useEffect(() => {
+    if (!showThemePanel) return;
+    const handler = (e: MouseEvent) => {
+      if (themePanelRef.current && !themePanelRef.current.contains(e.target as Node)) {
+        setShowThemePanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showThemePanel]);
+
+  // Remove any leftover brightness filter from old version
+  useEffect(() => { document.documentElement.style.filter = ''; }, []);
+
   const downtimeLog: DowntimeEntry[] = liveData?.downtime_log ?? [];
   const online: boolean | null = liveData
     ? isBotOnline(liveData.heartbeat, lastSynced)
     : null;
   const maintenance = liveData?.maintenance ?? false;
   const pingMs = liveData?.ping_ms ?? null;
+  useEffect(() => {
+    if (lastSynced === null) return;
+    setPingHistory(h => {
+      const next = [...h, { t: lastSynced, ms: pingMs }].slice(-48); // keep last 48 readings (~48min at 1/min)
+      return next;
+    });
+  }, [lastSynced]);
   const latestVersion = CHANGELOG[0]?.version ?? null;
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = (e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      setShowThemePanel(p => !p);
+      return;
+    }
+    // Fast fade: kill all transitions, do a quick opacity dip, swap theme, restore
+    const root = document.documentElement;
+    const noTrans = document.createElement('style');
+    noTrans.id = '__no_trans__';
+    noTrans.textContent = '*, *::before, *::after { transition: none !important; }';
+    document.head.appendChild(noTrans);
+    root.style.opacity = '0.92';
+    root.style.transition = 'opacity 0.08s ease';
     const next = !darkMode;
     setDarkMode(next);
     try { localStorage.setItem('darkMode', String(next)); } catch {}
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.head.removeChild(noTrans);
+        root.style.opacity = '1';
+        setTimeout(() => { root.style.transition = ''; root.style.opacity = ''; }, 100);
+      });
+    });
   };
 
+  const defaultBg = darkMode ? '#0d0f12' : '#f2f3f5';
+  const themedBg = bgColor || defaultBg;
+
+  // Keep --app-bg CSS var in sync with themedBg state
+  useEffect(() => {
+    document.documentElement.style.setProperty('--app-bg', themedBg);
+  }, [themedBg]);
+
+  const fontScale = fontSize === 'small' ? '13px' : fontSize === 'large' ? '17px' : '15px';
+
+  // Inject a style tag for reduced motion
+  useEffect(() => {
+    let el = document.getElementById('__user-settings__');
+    if (!el) { el = document.createElement('style'); el.id = '__user-settings__'; document.head.appendChild(el); }
+    el.textContent = reducedMotion ? '*, *::before, *::after { transition: none !important; animation: none !important; }' : '';
+  }, [reducedMotion]);
+
+  // Font size via zoom on the page wrapper — preserves relative sizing between elements
+  const zoomScale = fontSize === 'small' ? 0.88 : fontSize === 'large' ? 1.12 : 1;
+
   const theme = {
-    bg: darkMode ? '#0d0f12' : '#f2f3f5',
+    bg: themedBg,
     surface: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)',
     surface2: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)',
     border: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)',
-    border2: darkMode ? 'rgba(88,101,242,0.3)' : 'rgba(88,101,242,0.4)',
+    border2: darkMode ? 'rgba(var(--primary-rgb),0.3)' : 'rgba(var(--primary-rgb),0.4)',
     text: darkMode ? '#dcddde' : '#1a1b1e',
     muted: darkMode ? '#72767d' : '#6d6f78',
-    headerBg: darkMode ? 'linear-gradient(180deg, #1a1d2e 0%, #0d0f12 100%)' : 'linear-gradient(180deg, #e8eaf6 0%, #f2f3f5 100%)',
-    headerBorder: darkMode ? 'rgba(88,101,242,0.2)' : 'rgba(88,101,242,0.3)',
+    headerBg: `linear-gradient(180deg, ${mixHex(themedBg, effectivePrimary, darkMode ? 0.18 : 0.1)} 0%, ${themedBg} 100%)`,
+    headerBorder: darkMode ? 'rgba(var(--primary-rgb),0.2)' : 'rgba(var(--primary-rgb),0.3)',
     inputBg: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-    tabActiveBg: darkMode ? '#5865F2' : '#5865F2',
+    tabActiveBg: darkMode ? 'var(--primary)' : 'var(--primary)',
     tabBg: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)',
   };
   const hasNewChangelog = latestVersion && seenVersion !== latestVersion;
@@ -4405,8 +4621,9 @@ export default function App() {
     <div
       className={mobilePreview ? 'mobile-sim-inner' : undefined}
       style={{
-        minHeight: mobilePreview ? '100%' : '100vh',
-        background: theme.bg,
+        minHeight: mobilePreview ? '100%' : `${100 / zoomScale}vh`,
+        background: 'var(--app-bg)',
+        zoom: zoomScale,
         color: theme.text,
         fontFamily: "'Segoe UI', system-ui, sans-serif",
         padding: '0 0 0',
@@ -4431,11 +4648,14 @@ export default function App() {
           --border2: ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.14)'};
           --input-bg: ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'};
           --green: ${darkMode ? '#57F287' : '#1a8a3c'};
+          --primary: ${effectivePrimary};
+          --primary-rgb: ${primaryRgb};
         }
+        .theme-animate { transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.15)'}; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: ${darkMode ? 'rgba(88,101,242,0.5)' : 'rgba(88,101,242,0.4)'}; }
+        ::-webkit-scrollbar-thumb:hover { background: ${darkMode ? 'rgba(var(--primary-rgb),0.5)' : 'rgba(var(--primary-rgb),0.4)'}; }
 
         /* Stat card defaults (desktop) */
         .stat-card { padding: 20px 12px; }
@@ -4455,14 +4675,14 @@ export default function App() {
           .stat-card { padding: 10px 6px !important; border-radius: 8px !important; }
           .stat-value { font-size: 20px !important; }
           .stat-label { font-size: 9px !important; letter-spacing: 1px !important; }
-          .tab-bar { scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.5) transparent !important; }
+          .tab-bar { scrollbar-width: thin !important; scrollbar-color: rgba(var(--primary-rgb),0.5) transparent !important; }
           .tab-bar::-webkit-scrollbar { height: 3px !important; display: block !important; }
           .tab-bar::-webkit-scrollbar-track { background: transparent !important; }
-          .tab-bar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.5) !important; border-radius: 3px !important; }
+          .tab-bar::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb),0.5) !important; border-radius: 3px !important; }
           .admin-layout { flex-direction: column !important; gap: 10px !important; }
-          .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: auto !important; flex-wrap: nowrap !important; gap: 4px !important; padding-bottom: 2px !important; scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.4) transparent !important; box-sizing: border-box !important; }
+          .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: auto !important; flex-wrap: nowrap !important; gap: 4px !important; padding-bottom: 2px !important; scrollbar-width: thin !important; scrollbar-color: rgba(var(--primary-rgb),0.4) transparent !important; box-sizing: border-box !important; }
           .admin-sidebar::-webkit-scrollbar { height: 3px !important; display: block !important; }
-          .admin-sidebar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.4) !important; border-radius: 3px !important; }
+          .admin-sidebar::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb),0.4) !important; border-radius: 3px !important; }
           .sidebar-btn { flex: none !important; flex-shrink: 0 !important; white-space: nowrap !important; font-size: 12px !important; padding: 7px 12px !important; width: auto !important; }
           .admin-sidebar > div:last-child { display: none !important; }
           .admin-content { min-width: 0 !important; max-width: 100% !important; }
@@ -4484,19 +4704,19 @@ export default function App() {
         .mobile-sim-inner .stat-label { font-size: 9px !important; letter-spacing: 1px !important; }
 
         /* Tab bar  -  force horizontal scroll, prevent overflow */
-        .mobile-sim-inner .tab-bar { overflow-x: scroll !important; flex-wrap: nowrap !important; padding: 3px !important; scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.5) transparent !important; max-width: 100% !important; box-sizing: border-box !important; }
+        .mobile-sim-inner .tab-bar { overflow-x: scroll !important; flex-wrap: nowrap !important; padding: 3px !important; scrollbar-width: thin !important; scrollbar-color: rgba(var(--primary-rgb),0.5) transparent !important; max-width: 100% !important; box-sizing: border-box !important; }
         .mobile-sim-inner .tab-bar::-webkit-scrollbar { height: 3px !important; display: block !important; }
         .mobile-sim-inner .tab-bar::-webkit-scrollbar-track { background: transparent !important; }
-        .mobile-sim-inner .tab-bar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.5) !important; border-radius: 3px !important; }
+        .mobile-sim-inner .tab-bar::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb),0.5) !important; border-radius: 3px !important; }
 
         .mobile-sim-inner .tab-btn { flex: none !important; flex-shrink: 0 !important; flex-grow: 0 !important; font-size: 10px !important; padding: 6px 10px !important; white-space: nowrap !important; width: auto !important; }
 
         /* Admin panel  -  sidebar becomes horizontal scroll row */
         .mobile-sim-inner .admin-layout { flex-direction: column !important; gap: 10px !important; }
-        .mobile-sim-inner .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: scroll !important; flex-wrap: nowrap !important; gap: 4px !important; padding-bottom: 4px !important; scrollbar-width: thin !important; scrollbar-color: rgba(88,101,242,0.4) transparent !important; box-sizing: border-box !important; }
+        .mobile-sim-inner .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: scroll !important; flex-wrap: nowrap !important; gap: 4px !important; padding-bottom: 4px !important; scrollbar-width: thin !important; scrollbar-color: rgba(var(--primary-rgb),0.4) transparent !important; box-sizing: border-box !important; }
         .mobile-sim-inner .admin-sidebar::-webkit-scrollbar { height: 3px !important; display: block !important; }
         .mobile-sim-inner .admin-sidebar::-webkit-scrollbar-track { background: transparent !important; }
-        .mobile-sim-inner .admin-sidebar::-webkit-scrollbar-thumb { background: rgba(88,101,242,0.4) !important; border-radius: 3px !important; }
+        .mobile-sim-inner .admin-sidebar::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb),0.4) !important; border-radius: 3px !important; }
         .mobile-sim-inner .sidebar-btn { flex: none !important; flex-shrink: 0 !important; white-space: nowrap !important; font-size: 12px !important; padding: 7px 12px !important; width: auto !important; }
         .mobile-sim-inner .admin-sidebar > div:last-child { display: none !important; }
         .mobile-sim-inner .admin-content { min-width: 0 !important; max-width: 100% !important; }
@@ -4521,7 +4741,7 @@ export default function App() {
             position: 'absolute',
             inset: 0,
             backgroundImage:
-              'linear-gradient(rgba(88,101,242,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(88,101,242,0.07) 1px, transparent 1px)',
+              'linear-gradient(rgba(var(--primary-rgb),0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--primary-rgb),0.07) 1px, transparent 1px)',
             backgroundSize: '40px 40px',
             WebkitMaskImage:
               'radial-gradient(ellipse 80% 100% at 50% 0%, black, transparent)',
@@ -4540,13 +4760,13 @@ export default function App() {
                 online === null
                   ? 'rgba(114,118,125,0.15)'
                   : online
-                  ? 'rgba(88,101,242,0.15)'
+                  ? 'rgba(var(--primary-rgb),0.15)'
                   : 'rgba(237,66,69,0.15)',
               border: `1px solid ${
                 online === null
                   ? 'rgba(114,118,125,0.4)'
                   : online
-                  ? 'rgba(88,101,242,0.4)'
+                  ? 'rgba(var(--primary-rgb),0.4)'
                   : 'rgba(237,66,69,0.4)'
               }`,
               borderRadius: 20,
@@ -4554,7 +4774,7 @@ export default function App() {
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: 11,
               color:
-                online === null ? '#72767d' : online ? '#5865F2' : '#ED4245',
+                online === null ? '#72767d' : online ? 'var(--primary)' : '#ED4245',
               letterSpacing: 1,
             }}
           >
@@ -4574,7 +4794,7 @@ export default function App() {
           </div>
           </div>
           <h1
-            key={darkMode ? 'dark' : 'light'}
+            key={`${darkMode ? 'dark' : 'light'}-${effectivePrimary}`}
             className="hero-title"
             style={{
               margin: 0,
@@ -4582,8 +4802,8 @@ export default function App() {
               fontWeight: 800,
               fontFamily: "'JetBrains Mono', monospace",
               background: darkMode
-                ? 'linear-gradient(135deg, #ffffff 30%, #5865F2)'
-                : 'linear-gradient(135deg, #1a1b1e 30%, #5865F2)',
+                ? `linear-gradient(135deg, #ffffff 30%, ${effectivePrimary})`
+                : `linear-gradient(135deg, #1a1b1e 30%, ${effectivePrimary})`,
               WebkitBackgroundClip: 'text',
               backgroundClip: 'text',
               color: 'transparent',
@@ -4605,8 +4825,8 @@ export default function App() {
             Server Backup · Restore · Prefix&nbsp;
             <code
               style={{
-                background: 'rgba(88,101,242,0.2)',
-                color: '#5865F2',
+                background: 'rgba(var(--primary-rgb),0.2)',
+                color: 'var(--primary)',
                 padding: '1px 6px',
                 borderRadius: 4,
                 fontFamily: 'monospace',
@@ -4635,7 +4855,7 @@ export default function App() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 7,
-                background: '#5865F2',
+                background: 'var(--primary)',
                 color: '#fff',
                 borderRadius: 8,
                 padding: '10px 20px',
@@ -4721,26 +4941,190 @@ export default function App() {
             the bot is full
           </a>
         </div>
-        {/* Dark mode toggle */}
-        <button
-          onClick={toggleDarkMode}
-          style={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)',
-            border: `1px solid ${theme.border}`,
-            borderRadius: 8,
-            padding: '6px 12px',
-            cursor: 'pointer',
-            fontSize: 14,
-            color: theme.muted,
-            transition: 'background 0.2s',
-          }}
-          title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {darkMode ? '☀️' : '🌙'}
-        </button>
+        {/* Dark mode toggle + theme panel */}
+        <div style={{ position: 'absolute', top: 16, right: 16, zoom: 1 / zoomScale }} ref={themePanelRef}>
+          <button
+            onClick={() => setShowThemePanel(p => !p)}
+            style={{
+              background: showThemePanel ? 'rgba(var(--primary-rgb),0.15)' : darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)',
+              border: `1px solid ${showThemePanel ? effectivePrimary : theme.border}`,
+              borderRadius: 8,
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: 15,
+              color: showThemePanel ? 'var(--primary)' : theme.muted,
+              transition: 'all 0.15s',
+            }}
+            title="Settings"
+          >
+            ⚙️
+          </button>
+          {showThemePanel && (
+            <div style={{
+              position: 'fixed',
+              top: 60,
+              right: 16,
+              width: 240,
+              maxHeight: 'calc(100vh - 80px)',
+              overflowY: 'auto',
+              background: darkMode ? '#1e1f22' : '#ffffff',
+              border: `1px solid ${effectivePrimary}`,
+              borderRadius: 10,
+              padding: '14px 16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: theme.text, fontFamily: 'monospace', letterSpacing: 1 }}>⚙️ SETTINGS</div>
+
+              {/* Theme */}
+              <div>
+                <div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>THEME</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['dark', 'light'] as const).map(m => (
+                    <button key={m} onClick={() => { const next = m === 'dark'; if (next !== darkMode) { setDarkMode(next); try { localStorage.setItem('darkMode', String(next)); } catch {} } }}
+                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                        background: (m === 'dark') === darkMode ? effectivePrimary : 'transparent',
+                        color: (m === 'dark') === darkMode ? '#fff' : theme.muted,
+                        border: `1px solid ${(m === 'dark') === darkMode ? effectivePrimary : theme.border}`,
+                      }}>{m === 'dark' ? '🌙 Dark' : '☀️ Light'}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Font size */}
+              <div>
+                <div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>FONT SIZE</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['small', 'normal', 'large'] as const).map(s => (
+                    <button key={s} onClick={() => { setFontSize(s); try { localStorage.setItem('theme_font_size', s); } catch {} }}
+                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                        background: fontSize === s ? effectivePrimary : 'transparent',
+                        color: fontSize === s ? '#fff' : theme.muted,
+                        border: `1px solid ${fontSize === s ? effectivePrimary : theme.border}`,
+                      }}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Toggles */}
+              <div>
+                <div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>OPTIONS</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {([
+                    { label: 'Reduced Motion', key: 'reducedMotion', value: reducedMotion, set: (v: boolean) => { setReducedMotion(v); try { localStorage.setItem('theme_reduced_motion', String(v)); } catch {} } },
+                    { label: 'Compact Stats', key: 'compact', value: compact, set: (v: boolean) => { setCompact(v); window.dispatchEvent(new CustomEvent('toggle-compact', { detail: v })); try { localStorage.setItem('stat-compact', String(v)); } catch {} } },
+                  ] as any[]).map(opt => (
+                    <div key={opt.key} onClick={() => opt.set(!opt.value)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '4px 0' }}>
+                      <span style={{ fontSize: 11, color: theme.text }}>{opt.label}</span>
+                      <div style={{ width: 32, height: 18, borderRadius: 9, background: opt.value ? effectivePrimary : theme.border, position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                        <div style={{ position: 'absolute', top: 2, left: opt.value ? 14 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ width: '100%', height: 1, background: theme.border }} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: theme.muted, fontFamily: 'monospace', letterSpacing: 1 }}>APPEARANCE</div>
+
+              {/* Background color picker */}
+              <div>
+                <div style={{ fontSize: 11, color: theme.muted, marginBottom: 8 }}>Background Color</div>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {(darkMode
+                    ? ['#0d0f12','#000000','#0a0a0f','#0f0d12','#0d1117','#0d120f','#120d0d','#0d0d0d']
+                    : ['#f2f3f5','#ffffff','#f0f0f0','#eef0f4','#f5f0ee','#eef5f0','#f5eef5','#efefef']
+                  ).map(c => (
+                    <div
+                      key={c}
+                      onClick={() => { setBgColor(c); try { localStorage.setItem('theme_bg_color', c); } catch {} }}
+                      style={{
+                        width: 22, height: 22, borderRadius: 4, background: c, cursor: 'pointer',
+                        border: (bgColor || defaultBg) === c ? `2px solid ${effectivePrimary}` : `2px solid ${theme.border}`,
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="color"
+                    defaultValue={bgColor || defaultBg}
+                    onInput={e => {
+                      const v = (e.target as HTMLInputElement).value;
+                      document.documentElement.style.setProperty('--app-bg', v);
+                    }}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setBgColor(v);
+                      document.documentElement.style.setProperty('--app-bg', v);
+                      try { localStorage.setItem('theme_bg_color', v); } catch {}
+                    }}
+                    style={{ width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: 'none' }}
+                  />
+                  <span style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>{(bgColor || defaultBg).toUpperCase()}</span>
+                  <button
+                    onClick={() => { setBgColor(''); try { localStorage.setItem('theme_bg_color', ''); } catch {} }}
+                    style={{ marginLeft: 'auto', fontSize: 10, color: theme.muted, background: 'none', border: `1px solid ${theme.border}`, borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
+                  >Reset</button>
+                </div>
+              </div>
+
+              {/* Primary color picker */}
+              <div>
+                <div style={{ fontSize: 11, color: theme.muted, marginBottom: 8 }}>Primary Color</div>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {['#5865F2','#ED4245','#57F287','#FEE75C','#EB459E','#FF7043','#00BCD4','#9C27B0'].map(c => (
+                    <div
+                      key={c}
+                      onClick={() => { setPrimaryColor(c); try { localStorage.setItem('primaryColor', c); } catch {} }}
+                      style={{
+                        width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer',
+                        border: primaryColor === c ? '2px solid #fff' : '2px solid transparent',
+                        boxShadow: primaryColor === c ? `0 0 0 2px ${c}` : 'none',
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="color"
+                    defaultValue={primaryColor}
+                    onInput={e => {
+                      const v = (e.target as HTMLInputElement).value;
+                      const r = parseInt(v.slice(1,3),16), g = parseInt(v.slice(3,5),16), b = parseInt(v.slice(5,7),16);
+                      document.documentElement.style.setProperty('--primary', v);
+                      document.documentElement.style.setProperty('--primary-rgb', `${r},${g},${b}`);
+                    }}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setPrimaryColor(v);
+                      document.documentElement.style.removeProperty('--primary');
+                      document.documentElement.style.removeProperty('--primary-rgb');
+                      try { localStorage.setItem('primaryColor', v); } catch {}
+                    }}
+                    style={{ width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: 'none' }}
+                  />
+                  <span style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>{primaryColor.toUpperCase()}</span>
+                  <button
+                    onClick={() => { setPrimaryColor('#5865F2'); document.documentElement.style.removeProperty('--primary'); document.documentElement.style.removeProperty('--primary-rgb'); try { localStorage.setItem('primaryColor', '#5865F2'); } catch {} }}
+                    style={{ marginLeft: 'auto', fontSize: 10, color: theme.muted, background: 'none', border: `1px solid ${theme.border}`, borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
+                  >Reset</button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowThemePanel(false)}
+                style={{ fontSize: 11, color: theme.muted, background: 'none', border: `1px solid ${theme.border}`, borderRadius: 6, padding: '5px 0', cursor: 'pointer', textAlign: 'center' }}
+              >Close</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="page-wrap" style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px' }}>
@@ -4789,7 +5173,7 @@ export default function App() {
                 fontSize: 11,
                 fontWeight: 600,
                 letterSpacing: 0.2,
-                background: activeTab === t.id ? '#5865F2' : t.id === 'admin' ? 'rgba(237,66,69,0.1)' : 'transparent',
+                background: activeTab === t.id ? 'var(--primary)' : t.id === 'admin' ? 'rgba(237,66,69,0.1)' : 'transparent',
                 color: activeTab === t.id ? '#fff' : t.id === 'admin' ? '#ED4245' : theme.muted,
                 transition: 'all 0.2s',
                 position: 'relative',
@@ -4852,7 +5236,7 @@ export default function App() {
                   transition: 'border-color 0.2s',
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#5865F2';
+                  e.target.style.borderColor = 'var(--primary)';
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = 'var(--border2)';
@@ -4927,7 +5311,7 @@ export default function App() {
                   }}
                 >
                   No commands matching "
-                  <span style={{ color: '#5865F2' }}>{search}</span>"
+                  <span style={{ color: 'var(--primary)' }}>{search}</span>"
                 </div>
               )}
           </div>
@@ -5111,6 +5495,103 @@ export default function App() {
               })()}
             </div>
 
+            {/* Ping history sparkline */}
+            {pingHistory.length >= 2 && (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Response Time (last {pingHistory.length} readings)</span>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: pingMs !== null ? (pingMs < 100 ? 'var(--green)' : pingMs < 300 ? '#FEE75C' : '#ED4245') : 'var(--muted)' }}>
+                    {pingMs !== null ? `${pingMs}ms now` : 'no data'}
+                  </span>
+                </div>
+                {/* Sparkline SVG */}
+                {(() => {
+                  const valid = pingHistory.filter(p => p.ms !== null) as { t: number; ms: number }[];
+                  if (valid.length < 2) return <div style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 11 }}>Collecting data...</div>;
+                  const maxMs = Math.max(...valid.map(p => p.ms), 1);
+                  const W = 100, H = 48;
+                  const pts = pingHistory.map((p, i) => {
+                    const x = (i / (pingHistory.length - 1)) * W;
+                    const y = p.ms !== null ? H - (p.ms / maxMs) * (H - 6) - 3 : H;
+                    return `${x},${y}`;
+                  }).join(' ');
+                  const fillPts = `0,${H} ${pts} ${W},${H}`;
+                  const avgMs = Math.round(valid.reduce((a, b) => a + b.ms, 0) / valid.length);
+                  const color = avgMs < 100 ? '#57F287' : avgMs < 300 ? '#FEE75C' : '#ED4245';
+                  return (
+                    <div style={{ position: 'relative' }}>
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 48, overflow: 'visible' }} preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="pingGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                            <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <polygon points={fillPts} fill="url(#pingGrad)" />
+                        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                        {/* avg line */}
+                        {(() => { const avgY = H - (avgMs / maxMs) * (H - 6) - 3; return <line x1="0" y1={avgY} x2={W} y2={avgY} stroke={color} strokeOpacity={0.25} strokeDasharray="2,2" strokeWidth="1" />; })()}
+                      </svg>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 9, color: 'var(--faint)', fontFamily: 'monospace' }}>
+                        <span>{new Date(pingHistory[0].t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span style={{ color }}> avg {avgMs}ms</span>
+                        <span>now</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Ping gauge */}
+                {pingMs !== null && (() => {
+                  const clamp = Math.min(pingMs, 600);
+                  const pct = clamp / 600;
+                  const gaugeColor = pingMs < 100 ? '#57F287' : pingMs < 300 ? '#FEE75C' : '#ED4245';
+                  const label = pingMs < 60 ? 'Excellent' : pingMs < 100 ? 'Good' : pingMs < 200 ? 'Fair' : pingMs < 400 ? 'Slow' : 'Poor';
+                  return (
+                    <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct * 100}%`, background: `linear-gradient(90deg, #57F287, ${gaugeColor})`, borderRadius: 3, transition: 'width 0.4s ease' }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: gaugeColor, minWidth: 52, textAlign: 'right' }}>{label}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Live uptime clock */}
+            {(() => {
+              const lastIncidentEnd = downtimeLog.length > 0
+                ? Math.max(...downtimeLog.map(e => e.bot_came_back_up ? new Date(e.bot_came_back_up).getTime() : new Date(e.server_went_down_approx).getTime() + (e.duration_seconds || 0) * 1000))
+                : new Date('2026-02-20').getTime();
+              const uptimeMs = online ? Date.now() - lastIncidentEnd : 0;
+              const uptimeDays = Math.floor(uptimeMs / 86400000);
+              const uptimeHrs = Math.floor((uptimeMs % 86400000) / 3600000);
+              const uptimeMins = Math.floor((uptimeMs % 3600000) / 60000);
+              const uptimeSecs = Math.floor((uptimeMs % 60000) / 1000);
+              if (!online) return null;
+              return (
+                <div style={{ background: 'var(--surface)', border: '1px solid rgba(87,242,135,0.2)', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Current Uptime Streak</div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                      {[{ v: uptimeDays, l: 'd' }, { v: uptimeHrs, l: 'h' }, { v: uptimeMins, l: 'm' }, { v: uptimeSecs, l: 's' }].map(({ v, l }) => (
+                        <div key={l} style={{ textAlign: 'center' }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: 'var(--green)' }}>{String(v).padStart(2, '0')}</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 2 }}>{l}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'monospace', marginBottom: 4 }}>since last incident</div>
+                    <div style={{ fontSize: 11, color: 'var(--faint)', fontFamily: 'monospace' }}>
+                      {new Date(lastIncidentEnd).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Services as accordions */}
             {statusServices.map((s, si) => {
               const isOpen = openService === si;
@@ -5237,7 +5718,7 @@ export default function App() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--faint)', fontFamily: 'monospace' }}>
                         <span>Feb 20</span>
-                        <span style={{ color: '#5865F2' }}>Mar 1 launch</span>
+                        <span style={{ color: 'var(--primary)' }}>Mar 1 launch</span>
                         <span>Today</span>
                       </div>
                       {/* Incident log moved to bottom of page */}
@@ -5248,29 +5729,62 @@ export default function App() {
               );
             })}
 
-            {/* Standalone incident history at the bottom */}
-            {downtimeLog.length > 0 && (
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
-                <h3 style={{ margin: '0 0 14px', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                  Incident History ({downtimeLog.length})
+            {/* Incident timeline */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                  Incident History
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[...downtimeLog].reverse().map((entry) => (
-                    <div key={entry.id} style={{ padding: '10px 14px', background: 'rgba(237,66,69,0.04)', border: '1px solid rgba(237,66,69,0.15)', borderRadius: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#ED4245' }}>
-                          #{entry.id} · {entry.duration_human}
-                        </span>
-                        <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: 'monospace' }}>
-                          {new Date(entry.server_went_down_approx).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{entry.reason}</div>
-                    </div>
-                  ))}
-                </div>
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: downtimeLog.length === 0 ? 'var(--green)' : 'var(--muted)' }}>
+                  {downtimeLog.length === 0 ? '✓ No incidents recorded' : `${downtimeLog.length} incident${downtimeLog.length !== 1 ? 's' : ''}`}
+                </span>
               </div>
-            )}
+              {downtimeLog.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--faint)', fontSize: 12, fontFamily: 'monospace' }}>
+                  🎉 All clear since launch
+                </div>
+              ) : (
+                <div style={{ position: 'relative' }}>
+                  {/* vertical line */}
+                  <div style={{ position: 'absolute', left: 15, top: 0, bottom: 0, width: 1, background: 'var(--border)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {[...downtimeLog].reverse().map((entry, i, arr) => {
+                      const downAt = new Date(entry.server_went_down_approx);
+                      const upAt = entry.bot_came_back_up ? new Date(entry.bot_came_back_up) : null;
+                      const isRecent = Date.now() - downAt.getTime() < 7 * 86400000;
+                      return (
+                        <div key={entry.id} style={{ display: 'flex', gap: 16, paddingBottom: i < arr.length - 1 ? 20 : 0, position: 'relative' }}>
+                          {/* dot */}
+                          <div style={{ width: 30, flexShrink: 0, display: 'flex', justifyContent: 'center', paddingTop: 2 }}>
+                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#ED4245', border: '2px solid var(--surface)', boxShadow: isRecent ? '0 0 0 3px rgba(237,66,69,0.25)' : 'none', zIndex: 1, position: 'relative' }} />
+                          </div>
+                          {/* content */}
+                          <div style={{ flex: 1, background: 'rgba(237,66,69,0.04)', border: '1px solid rgba(237,66,69,0.12)', borderRadius: 8, padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 5 }}>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#ED4245', fontWeight: 700 }}>#{entry.id}</span>
+                                <span style={{ fontFamily: 'monospace', fontSize: 11, background: 'rgba(237,66,69,0.15)', color: '#ED4245', borderRadius: 4, padding: '1px 6px' }}>{entry.duration_human}</span>
+                                {isRecent && <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#FEE75C', background: 'rgba(254,231,92,0.1)', borderRadius: 4, padding: '1px 6px' }}>recent</span>}
+                              </div>
+                              <span style={{ fontSize: 10, color: 'var(--faint)', fontFamily: 'monospace', flexShrink: 0 }}>
+                                {downAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: upAt ? 6 : 0 }}>{entry.reason}</div>
+                            {upAt && (
+                              <div style={{ display: 'flex', gap: 16, fontSize: 10, fontFamily: 'monospace', color: 'var(--faint)', marginTop: 4 }}>
+                                <span>⬇ {downAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span style={{ color: 'var(--green)' }}>⬆ {upAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -5365,8 +5879,8 @@ export default function App() {
               style={{
                 marginTop: 8,
                 padding: '14px 18px',
-                background: 'rgba(88,101,242,0.06)',
-                border: '1px solid rgba(88,101,242,0.2)',
+                background: 'rgba(var(--primary-rgb),0.06)',
+                border: '1px solid rgba(var(--primary-rgb),0.2)',
                 borderRadius: 10,
                 fontSize: 13,
                 color: 'var(--muted)',
@@ -5378,7 +5892,7 @@ export default function App() {
                 target="_blank"
                 rel="noreferrer"
                 style={{
-                  color: '#5865F2',
+                  color: 'var(--primary)',
                   textDecoration: 'none',
                   fontFamily: 'monospace',
                 }}
@@ -5393,7 +5907,7 @@ export default function App() {
         {activeTab === 'tryit' && <TryItTab darkMode={darkMode} theme={theme} />}
 
         {/* ADMIN */}
-        {activeTab === 'admin' && <AdminPanel theme={theme} darkMode={darkMode} liveData={liveData} onRefresh={handleRefresh} refreshing={refreshing} lastSynced={lastSynced} mobilePreview={mobilePreview} setMobilePreview={setMobilePreview} />}
+        {activeTab === 'admin' && <AdminPanel theme={theme} darkMode={darkMode} liveData={liveData} onRefresh={handleRefresh} refreshing={refreshing} lastSynced={lastSynced} mobilePreview={mobilePreview} setMobilePreview={setMobilePreview} effectivePrimary={effectivePrimary} />}
 
         {/* HOW IT WORKS */}
         {activeTab === 'architecture' && (
@@ -5555,14 +6069,14 @@ export default function App() {
                       alignItems: 'center',
                       gap: 8,
                       padding: '8px 12px',
-                      background: 'rgba(88,101,242,0.05)',
+                      background: 'rgba(var(--primary-rgb),0.05)',
                       borderRadius: 6,
                       fontSize: 12,
                       color: 'var(--muted)',
                     }}
                   >
                     <span
-                      style={{ color: '#5865F2', fontSize: 8, flexShrink: 0 }}
+                      style={{ color: 'var(--primary)', fontSize: 8, flexShrink: 0 }}
                     >
                       ◆
                     </span>
@@ -5816,7 +6330,7 @@ export default function App() {
             target="_blank"
             rel="noreferrer"
             style={{
-              color: '#5865F2',
+              color: 'var(--primary)',
               textDecoration: 'none',
               fontFamily: 'monospace',
               fontSize: 12,
@@ -5859,8 +6373,8 @@ export default function App() {
             left: '50%',
             transform: 'translateX(-50%)',
             background: 'rgba(20,21,26,0.92)',
-            border: '1px solid rgba(88,101,242,0.5)',
-            color: '#5865F2',
+            border: '1px solid rgba(var(--primary-rgb),0.5)',
+            color: 'var(--primary)',
             borderRadius: 20,
             padding: '8px 18px',
             fontSize: 12,
@@ -5870,7 +6384,7 @@ export default function App() {
             alignItems: 'center',
             gap: 7,
             backdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 20px rgba(88,101,242,0.25)',
+            boxShadow: '0 4px 20px rgba(var(--primary-rgb),0.25)',
             zIndex: 998,
             fontFamily: "'JetBrains Mono', monospace",
             letterSpacing: 0.3,
@@ -5892,7 +6406,7 @@ export default function App() {
             width: 40,
             height: 40,
             borderRadius: '50%',
-            background: '#5865F2',
+            background: 'var(--primary)',
             border: 'none',
             color: '#fff',
             fontSize: 16,
@@ -5900,7 +6414,7 @@ export default function App() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(88,101,242,0.4)',
+            boxShadow: '0 4px 16px rgba(var(--primary-rgb),0.4)',
             zIndex: 999,
             transition: 'opacity 0.2s',
           }}
