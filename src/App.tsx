@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, LineChart, Line, ScatterChart, Scatter, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
 const DATA_URL =
   'https://api.github.com/repos/potatofemboy/discord-data/contents/data.json';
@@ -2713,6 +2713,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const [serverSearch, setServerSearch] = useState('');
   const [backupSearch, setBackupSearch] = useState('');
   const [backupHoursAgo, setBackupHoursAgo] = useState('');
+  const [showBackupCharts, setShowBackupCharts] = useState(false);
   const [errorSearch, setErrorSearch] = useState('');
   const [quickSearch, setQuickSearch] = useState('');
   const [githubToken, setGithubToken] = useState<string>(() => { try { return localStorage.getItem('gh_pat') || ''; } catch { return ''; } });
@@ -3516,6 +3517,17 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
             {liveData && backupServerIds.length === 0 && (
               <div style={{ color: theme.muted, fontSize: 13 }}>No backups found in the storage forum. Run <code style={{ color: 'var(--primary)' }}>#$save &lt;server_id&gt;</code> to create one.</div>
             )}
+            {backupServerIds.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <button
+                  onClick={() => setShowBackupCharts(v => !v)}
+                  style={{ width: '100%', padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: showBackupCharts ? 'rgba(255,255,255,0.06)' : 'transparent', color: theme.muted, fontSize: 12, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>📈 Storage Charts</span>
+                  <span style={{ fontSize: 10, opacity: 0.6 }}>{showBackupCharts ? '▲ hide' : '▼ show'}</span>
+                </button>
+                {showBackupCharts && (
+                  <div style={{ marginTop: 12, maxHeight: 600, overflowY: 'auto', paddingRight: 4 }}>
             {backupServerIds.length > 0 && (() => {
               // Build per-backup cumulative size chart (one point per backup, sorted oldest→newest)
               const allBackups = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
@@ -3578,7 +3590,7 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               );
             })()}
             {backupServerIds.length > 0 && (() => {
-              // Build per-hour storage-added chart using deltas (new storage only, not full backup size)
+              // Chart 2: storage added per hour vs previous hour (hour-over-hour delta of total)
               const allBackups2 = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
               const withTime2 = allBackups2.filter(b => b.timestamp_iso || b.timestamp_str).map(b => {
                 const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
@@ -3588,48 +3600,42 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
               }).filter(Boolean).sort((a: any, b: any) => a.t - b.t) as { kb: number; sid: string; hourKey: Date; t: number; label: string }[];
               if (withTime2.length < 2) return null;
 
-              // Compute delta per backup vs previous backup for same server
-              const lastKbBySid: Record<string, number> = {};
-              const withDelta = withTime2.map(b => {
-                const prev = lastKbBySid[b.sid] ?? 0;
-                const delta = Math.max(0, b.kb - prev); // ignore deletions going negative
-                lastKbBySid[b.sid] = b.kb;
-                return { ...b, deltaKb: delta };
-              });
-
-              // Bucket deltas by hour
-              const byHour: Record<string, { kb: number; label: string; t: number }> = {};
-              withDelta.forEach(b => {
+              // Bucket by hour (sum all backup sizes)
+              const byHour2: Record<string, { kb: number; label: string; t: number }> = {};
+              withTime2.forEach(b => {
                 const key = b.hourKey.toISOString();
-                if (!byHour[key]) byHour[key] = { kb: 0, label: b.label, t: b.hourKey.getTime() };
-                byHour[key].kb += b.deltaKb;
+                if (!byHour2[key]) byHour2[key] = { kb: 0, label: b.label, t: b.hourKey.getTime() };
+                byHour2[key].kb += b.kb;
               });
-
-              // Fill all hours between first and last with 0 if missing
-              const hourEntries = Object.entries(byHour).sort(([a], [b]) => a.localeCompare(b));
-              const firstHourT = new Date(hourEntries[0][0]).getTime();
-              const lastHourT  = new Date(hourEntries[hourEntries.length - 1][0]).getTime();
-              const hourMap: Record<number, number> = {};
-              hourEntries.forEach(([k, v]) => { hourMap[new Date(k).getTime()] = v.kb; });
-              const filledHours: { t: number; kb: number; label: string; date: string }[] = [];
-              for (let t = firstHourT; t <= lastHourT; t += 3600000) {
-                const kb = hourMap[t] ?? 0;
+              const hourEntries2 = Object.entries(byHour2).sort(([a], [b]) => a.localeCompare(b));
+              const firstT2 = new Date(hourEntries2[0][0]).getTime();
+              const lastT2  = new Date(hourEntries2[hourEntries2.length - 1][0]).getTime();
+              const hourMap2: Record<number, number> = {};
+              hourEntries2.forEach(([k, v]) => { hourMap2[new Date(k).getTime()] = v.kb; });
+              // Compute hour-over-hour delta (this hour total - previous hour total)
+              const filledHours2: { t: number; kb: number; label: string; date: string }[] = [];
+              let prevHourKb = 0;
+              for (let t = firstT2; t <= lastT2; t += 3600000) {
+                const kb = hourMap2[t] ?? 0;
+                const delta = Math.max(0, kb - prevHourKb);
                 const d = new Date(t);
-                filledHours.push({ t, kb: Math.round(kb), label: d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC', date: d.toISOString().slice(5, 13) });
+                filledHours2.push({ t, kb: Math.round(delta), label: d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC', date: d.toISOString().slice(5, 13) });
+                if (kb > 0) prevHourKb = kb;
               }
-              if (filledHours.length < 2) return null;
+              if (filledHours2.length < 2) return null;
 
               const fmtKb2 = (kb: number) => kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
-              const avgKb = Math.round(filledHours.reduce((s, h) => s + h.kb, 0) / filledHours.length);
+              const nonZero2 = filledHours2.filter(h => h.kb > 0);
+              const avgKb2 = nonZero2.length > 0 ? Math.round(nonZero2.reduce((s, h) => s + h.kb, 0) / nonZero2.length) : 0;
 
               return (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>⚡ Storage added per hour</span>
-                    <span style={{ color: '#57F287', fontWeight: 600 }}>Avg: {fmtKb2(avgKb)}/hr</span>
+                    <span>⚡ Storage change vs previous hour</span>
+                    <span style={{ color: '#57F287', fontWeight: 600 }}>Avg: {fmtKb2(avgKb2)}/hr</span>
                   </div>
                   <ResponsiveContainer width="100%" height={110}>
-                    <AreaChart data={filledHours} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                    <AreaChart data={filledHours2} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                       <defs>
                         <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#57F287" stopOpacity={0.4} />
@@ -3643,8 +3649,8 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                         contentStyle={{ background: '#1e1f22', border: '1px solid #57F287', borderRadius: 6, fontSize: 11 }}
                         labelStyle={{ color: '#888', fontSize: 9 }}
                         formatter={(value: number) => value > 0
-                          ? [<span style={{ color: '#57F287', fontWeight: 600 }}>{fmtKb2(value)} added</span>, '']
-                          : [<span style={{ color: '#aaa' }}>No backup this hour</span>, '']
+                          ? [<span style={{ color: '#57F287', fontWeight: 600 }}>+{fmtKb2(value)} vs prev hour</span>, '']
+                          : [<span style={{ color: '#aaa' }}>No change this hour</span>, '']
                         }
                         labelFormatter={(label: string, payload: any[]) => <span style={{ color: '#888', fontSize: 9 }}>{payload?.[0]?.payload?.label ?? label}</span>}
                       />
@@ -3654,6 +3660,345 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
                 </div>
               );
             })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 3: total raw storage across all backups per hour (sum of all backup sizes that hour)
+              const allBackups3 = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
+              const withTime3 = allBackups3.filter(b => b.timestamp_iso || b.timestamp_str).map(b => {
+                const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
+                if (isNaN(d.getTime())) return null;
+                const hourKey = new Date(Math.floor(d.getTime() / 3600000) * 3600000);
+                return { kb: b.size_kb ?? 0, sid: b.sid, hourKey, t: d.getTime(), label: b.timestamp_str ?? '' };
+              }).filter(Boolean).sort((a: any, b: any) => a.t - b.t) as { kb: number; sid: string; hourKey: Date; t: number; label: string }[];
+              if (withTime3.length < 2) return null;
+
+              const byHour3: Record<string, { kb: number; label: string; t: number }> = {};
+              withTime3.forEach(b => {
+                const key = b.hourKey.toISOString();
+                if (!byHour3[key]) byHour3[key] = { kb: 0, label: b.label, t: b.hourKey.getTime() };
+                byHour3[key].kb += b.kb;
+              });
+              const hourEntries3 = Object.entries(byHour3).sort(([a], [b]) => a.localeCompare(b));
+              const firstT3 = new Date(hourEntries3[0][0]).getTime();
+              const lastT3  = new Date(hourEntries3[hourEntries3.length - 1][0]).getTime();
+              const hourMap3: Record<number, number> = {};
+              hourEntries3.forEach(([k, v]) => { hourMap3[new Date(k).getTime()] = v.kb; });
+              const filledHours3: { t: number; kb: number; label: string; date: string }[] = [];
+              for (let t = firstT3; t <= lastT3; t += 3600000) {
+                const kb = hourMap3[t] ?? 0;
+                const d = new Date(t);
+                filledHours3.push({ t, kb: Math.round(kb), label: d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC', date: d.toISOString().slice(5, 13) });
+              }
+              if (filledHours3.length < 2) return null;
+
+              const fmtKb3 = (kb: number) => kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
+              const nonZero3 = filledHours3.filter(h => h.kb > 0);
+              const avgKb3 = nonZero3.length > 0 ? Math.round(nonZero3.reduce((s, h) => s + h.kb, 0) / nonZero3.length) : 0;
+
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>📈 Total storage per hour</span>
+                    <span style={{ color: '#EB459E', fontWeight: 600 }}>Avg: {fmtKb3(avgKb3)}/hr</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={110}>
+                    <AreaChart data={filledHours3} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <defs>
+                        <linearGradient id="deltaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#EB459E" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#EB459E" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="date" hide />
+                      <YAxis hide domain={[0, 'auto']} />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: '1px solid #EB459E', borderRadius: 6, fontSize: 11 }}
+                        labelStyle={{ color: '#888', fontSize: 9 }}
+                        formatter={(value: number) => value > 0
+                          ? [<span style={{ color: '#EB459E', fontWeight: 600 }}>{fmtKb3(value)} total</span>, '']
+                          : [<span style={{ color: '#aaa' }}>No backups this hour</span>, '']
+                        }
+                        labelFormatter={(label: string, payload: any[]) => <span style={{ color: '#888', fontSize: 9 }}>{payload?.[0]?.payload?.label ?? label}</span>}
+                      />
+                      <Area type="monotone" dataKey="kb" stroke="#EB459E" strokeWidth={2} fill="url(#deltaGrad)" dot={false} activeDot={{ r: 4, fill: '#EB459E', stroke: '#fff', strokeWidth: 1.5 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 4: backup count per hour
+              const allBackups4 = backupServerIds.flatMap(sid => (backupInv[sid] ?? []).map(b => ({ ...b, sid })));
+              const withTime4 = allBackups4.filter(b => b.timestamp_iso || b.timestamp_str).map(b => {
+                const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
+                if (isNaN(d.getTime())) return null;
+                const hourKey = new Date(Math.floor(d.getTime() / 3600000) * 3600000);
+                return { sid: b.sid, hourKey, t: d.getTime(), label: b.timestamp_str ?? '' };
+              }).filter(Boolean).sort((a: any, b: any) => a.t - b.t) as { sid: string; hourKey: Date; t: number; label: string }[];
+              if (withTime4.length < 2) return null;
+              const byHour4: Record<string, { count: number; label: string }> = {};
+              withTime4.forEach(b => {
+                const key = b.hourKey.toISOString();
+                if (!byHour4[key]) byHour4[key] = { count: 0, label: b.label };
+                byHour4[key].count += 1;
+              });
+              const hourEntries4 = Object.entries(byHour4).sort(([a], [b]) => a.localeCompare(b));
+              const firstT4 = new Date(hourEntries4[0][0]).getTime();
+              const lastT4  = new Date(hourEntries4[hourEntries4.length - 1][0]).getTime();
+              const hourMap4: Record<number, number> = {};
+              hourEntries4.forEach(([k, v]) => { hourMap4[new Date(k).getTime()] = v.count; });
+              const filledHours4: { t: number; count: number; label: string; date: string }[] = [];
+              for (let t = firstT4; t <= lastT4; t += 3600000) {
+                const d = new Date(t);
+                filledHours4.push({ t, count: hourMap4[t] ?? 0, label: d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC', date: d.toISOString().slice(5, 13) });
+              }
+              if (filledHours4.length < 2) return null;
+              const nonZero4 = filledHours4.filter(h => h.count > 0);
+              const avgCount = nonZero4.length > 0 ? (nonZero4.reduce((s, h) => s + h.count, 0) / nonZero4.length).toFixed(1) : '0';
+              return (
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🗂️ Backups created per hour</span>
+                    <span style={{ color: '#FEE75C', fontWeight: 600 }}>Avg {avgCount}/hr &middot; {withTime4.length} total</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={110}>
+                    <AreaChart data={filledHours4} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <defs>
+                        <linearGradient id="countGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#FEE75C" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#FEE75C" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="date" hide />
+                      <YAxis hide domain={[0, 'auto']} />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: '1px solid #FEE75C', borderRadius: 6, fontSize: 11 }}
+                        formatter={(value: number) => value > 0
+                          ? [<span style={{ color: '#FEE75C', fontWeight: 600 }}>{value} backup{value !== 1 ? 's' : ''}</span>, '']
+                          : [<span style={{ color: '#aaa' }}>No backups this hour</span>, '']
+                        }
+                        labelFormatter={(_: any, payload: any[]) => <span style={{ color: '#888', fontSize: 9 }}>{payload?.[0]?.payload?.label ?? ''}</span>}
+                      />
+                      <Area type="monotone" dataKey="count" stroke="#FEE75C" strokeWidth={2} fill="url(#countGrad)" dot={false} activeDot={{ r: 4, fill: '#FEE75C', stroke: '#fff', strokeWidth: 1.5 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+
+            {backupServerIds.length > 0 && (() => {
+              // Chart 5: top servers by total backup size (bar)
+              const sizePerServer = backupServerIds.map(sid => {
+                const entries = backupInv[sid] ?? [];
+                const totalKb = entries.reduce((s, b) => s + (b.size_kb ?? 0), 0);
+                const name = guildSnap[sid]?.name ?? sid;
+                return { sid, name: name.length > 16 ? name.slice(0, 14) + '…' : name, totalKb: Math.round(totalKb) };
+              }).sort((a, b) => b.totalKb - a.totalKb).slice(0, 8);
+              if (sizePerServer.length === 0) return null;
+              const fmtKb5 = (kb: number) => kb >= 1024*1024 ? `${(kb/1024/1024).toFixed(1)}GB` : kb >= 1024 ? `${(kb/1024).toFixed(0)}MB` : `${kb}KB`;
+              const COLORS5 = ['#5865F2','#57F287','#FEE75C','#EB459E','#ED4245','#9B59B6','#1ABC9C','#E67E22'];
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4 }}>🏆 Top servers by total backup size</div>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <BarChart data={sizePerServer} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fill: theme.muted, fontSize: 9 }} interval={0} />
+                      <YAxis hide />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: '1px solid #5865F2', borderRadius: 6, fontSize: 11 }}
+                        formatter={(value: number) => [<span style={{ color: '#5865F2', fontWeight: 600 }}>{fmtKb5(value)}</span>, 'Total']}
+                        labelFormatter={(label: string) => <span style={{ color: '#ccc' }}>{label}</span>}
+                      />
+                      <Bar dataKey="totalKb" radius={[3,3,0,0]}>
+                        {sizePerServer.map((_, i) => <Cell key={i} fill={COLORS5[i % COLORS5.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 6: backup size per server over time (multi-line)
+              const COLORS6 = ['#5865F2','#57F287','#FEE75C','#EB459E','#ED4245','#9B59B6','#1ABC9C','#E67E22'];
+              const serversToShow = backupServerIds.slice(0, 5);
+              // Build unified time axis from all backups
+              const allTs: number[] = [];
+              const seriesData: Record<string, Record<number, number>> = {};
+              serversToShow.forEach(sid => {
+                seriesData[sid] = {};
+                (backupInv[sid] ?? []).forEach(b => {
+                  const d = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso + 'Z') : new Date(b.timestamp_str);
+                  if (!isNaN(d.getTime())) {
+                    const t = Math.floor(d.getTime() / 3600000) * 3600000;
+                    seriesData[sid][t] = b.size_kb ?? 0;
+                    allTs.push(t);
+                  }
+                });
+              });
+              const uniqueTs = [...new Set(allTs)].sort((a, b) => a - b);
+              if (uniqueTs.length < 2) return null;
+              const chartData6 = uniqueTs.map(t => {
+                const d = new Date(t);
+                const row: any = { t, date: d.toISOString().slice(5, 13) };
+                serversToShow.forEach(sid => { row[sid] = seriesData[sid][t] ?? null; });
+                return row;
+              });
+              const fmtKb6 = (kb: number) => kb >= 1024 ? `${(kb/1024).toFixed(1)}MB` : `${kb}KB`;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4 }}>📉 Backup size per server over time</div>
+                  <ResponsiveContainer width="100%" height={130}>
+                    <LineChart data={chartData6} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="date" hide />
+                      <YAxis hide />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: '1px solid #444', borderRadius: 6, fontSize: 10 }}
+                        formatter={(value: number, name: string) => [<span style={{ fontWeight: 600 }}>{fmtKb6(value)}</span>, guildSnap[name]?.name ?? name]}
+                      />
+                      {serversToShow.map((sid, i) => (
+                        <Line key={sid} type="monotone" dataKey={sid} stroke={COLORS6[i % COLORS6.length]} strokeWidth={1.5} dot={false} connectNulls activeDot={{ r: 3 }} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 7: encrypted vs unencrypted (donut)
+              const allEntries7 = backupServerIds.flatMap(sid => backupInv[sid] ?? []);
+              const encrypted = allEntries7.filter(b => b.encrypted).length;
+              const unencrypted = allEntries7.length - encrypted;
+              if (allEntries7.length === 0) return null;
+              const data7 = [
+                { name: 'Unencrypted', value: unencrypted, color: '#5865F2' },
+                { name: 'Encrypted', value: encrypted, color: '#57F287' },
+              ].filter(d => d.value > 0);
+              const pct = (v: number) => `${((v / allEntries7.length) * 100).toFixed(1)}%`;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4 }}>🔐 Encrypted vs unencrypted backups</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <PieChart width={110} height={110}>
+                      <Pie data={data7} cx={50} cy={50} innerRadius={28} outerRadius={48} dataKey="value" paddingAngle={2}>
+                        {data7.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: '#1e1f22', border: '1px solid #444', borderRadius: 6, fontSize: 11 }} formatter={(v: number, name: string) => [`${v} (${pct(v)})`, name]} />
+                    </PieChart>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {data7.map(d => (
+                        <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+                          <span style={{ color: theme.muted }}>{d.name}</span>
+                          <span style={{ color: d.color, fontWeight: 600, marginLeft: 'auto' }}>{d.value} ({pct(d.value)})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 8: member count vs latest backup size (scatter)
+              const points8 = backupServerIds.map(sid => {
+                const entries = backupInv[sid] ?? [];
+                if (entries.length === 0) return null;
+                const latest = entries.slice().sort((a, b) => {
+                  const ta = a.timestamp_iso ? new Date(a.timestamp_iso+'Z').getTime() : 0;
+                  const tb = b.timestamp_iso ? new Date(b.timestamp_iso+'Z').getTime() : 0;
+                  return tb - ta;
+                })[0];
+                const members = guildSnap[sid]?.member_count ?? 0;
+                const name = guildSnap[sid]?.name ?? sid;
+                return { members, kb: Math.round(latest.size_kb ?? 0), name };
+              }).filter(Boolean) as { members: number; kb: number; name: string }[];
+              if (points8.length < 2) return null;
+              const fmtKb8 = (kb: number) => kb >= 1024 ? `${(kb/1024).toFixed(1)}MB` : `${kb}KB`;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4 }}>👥 Member count vs latest backup size</div>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <ScatterChart margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                      <XAxis dataKey="members" name="Members" tick={{ fill: theme.muted, fontSize: 9 }} label={{ value: 'members', position: 'insideBottomRight', offset: -4, fill: theme.muted, fontSize: 9 }} />
+                      <YAxis dataKey="kb" name="Size" hide />
+                      <Tooltip
+                        contentStyle={{ background: '#1e1f22', border: '1px solid #FEE75C', borderRadius: 6, fontSize: 11 }}
+                        formatter={(value: number, name: string) => [name === 'kb' ? fmtKb8(value) : value, name === 'kb' ? 'Backup size' : 'Members']}
+                        labelFormatter={(_: any, payload: any[]) => <span style={{ color: '#ccc', fontSize: 10 }}>{payload?.[0]?.payload?.name}</span>}
+                      />
+                      <Scatter data={points8} fill="#FEE75C" opacity={0.8} />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 9: autobackup interval distribution (bar)
+              const intervals: Record<string, number> = {};
+              Object.values(autobackupSchedules).forEach(s => {
+                const label = s.interval_hours === 1 ? '1h' : s.interval_hours < 24 ? `${s.interval_hours}h` : `${s.interval_hours/24}d`;
+                intervals[label] = (intervals[label] ?? 0) + 1;
+              });
+              const data9 = Object.entries(intervals).sort(([a],[b]) => parseFloat(a) - parseFloat(b)).map(([label, count]) => ({ label, count }));
+              if (data9.length === 0) return null;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4 }}>⏱️ Autobackup interval distribution</div>
+                  <ResponsiveContainer width="100%" height={100}>
+                    <BarChart data={data9} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: theme.muted, fontSize: 10 }} />
+                      <YAxis allowDecimals={false} tick={{ fill: theme.muted, fontSize: 9 }} width={20} />
+                      <Tooltip contentStyle={{ background: '#1e1f22', border: '1px solid #9B59B6', borderRadius: 6, fontSize: 11 }} formatter={(v: number) => [<span style={{ color: '#9B59B6', fontWeight: 600 }}>{v} server{v !== 1 ? 's' : ''}</span>, '']} />
+                      <Bar dataKey="count" fill="#9B59B6" radius={[3,3,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            {backupServerIds.length > 0 && (() => {
+              // Chart 10: oldest backup age per server (bar, days ago)
+              const now10 = Date.now();
+              const ages = backupServerIds.map(sid => {
+                const entries = backupInv[sid] ?? [];
+                if (entries.length === 0) return null;
+                const oldest = entries.slice().sort((a, b) => {
+                  const ta = a.timestamp_iso ? new Date(a.timestamp_iso.endsWith('Z') ? a.timestamp_iso : a.timestamp_iso+'Z').getTime() : 0;
+                  const tb = b.timestamp_iso ? new Date(b.timestamp_iso.endsWith('Z') ? b.timestamp_iso : b.timestamp_iso+'Z').getTime() : 0;
+                  return ta - tb;
+                })[0];
+                const t = oldest.timestamp_iso ? new Date(oldest.timestamp_iso.endsWith('Z') ? oldest.timestamp_iso : oldest.timestamp_iso+'Z').getTime() : 0;
+                if (!t) return null;
+                const daysAgo = parseFloat(((now10 - t) / 86400000).toFixed(1));
+                const name = guildSnap[sid]?.name ?? sid;
+                return { name: name.length > 14 ? name.slice(0, 12) + '…' : name, daysAgo };
+              }).filter(Boolean).sort((a: any, b: any) => b.daysAgo - a.daysAgo) as { name: string; daysAgo: number }[];
+              if (ages.length === 0) return null;
+              const maxDays = ages[0].daysAgo;
+              return (
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, color: theme.muted, marginBottom: 4 }}>🕰️ Oldest backup age per server</div>
+                  <ResponsiveContainer width="100%" height={Math.max(80, ages.length * 22)}>
+                    <BarChart data={ages} layout="vertical" margin={{ top: 4, right: 40, left: 4, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+                      <XAxis type="number" hide domain={[0, maxDays * 1.1]} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: theme.muted, fontSize: 9 }} width={80} />
+                      <Tooltip contentStyle={{ background: '#1e1f22', border: '1px solid #ED4245', borderRadius: 6, fontSize: 11 }} formatter={(v: number) => [<span style={{ color: '#ED4245', fontWeight: 600 }}>{v}d ago</span>, 'Oldest backup']} />
+                      <Bar dataKey="daysAgo" radius={[0,3,3,0]}>
+                        {ages.map((a, i) => <Cell key={i} fill={a.daysAgo > 7 ? '#ED4245' : a.daysAgo > 3 ? '#FEE75C' : '#57F287'} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+                  </div>
+                )}
+              </div>
+            )}
             {backupServerIds.length > 0 && (
               <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
                 <input
