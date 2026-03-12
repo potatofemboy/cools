@@ -2613,7 +2613,7 @@ async function hashPassword(password: string): Promise<string> {
 
 type AdminView = 'dashboard' | 'backups' | 'servers' | 'access' | 'logs' | 'quick_answers' | 'codes';
 
-function QuickAnswerRow({ item, theme }: { item: FaqEntry; theme: Record<string, string> }) {
+function QuickAnswerRow({ item, theme }: { key?: number; item: FaqEntry; theme: Record<string, string> }) {
   const [copied, setCopied] = React.useState(false);
   const copy = () => {
     const pool = item.answers && item.answers.length > 0 ? item.answers : [item.a];
@@ -2638,7 +2638,7 @@ function QuickAnswerRow({ item, theme }: { item: FaqEntry; theme: Record<string,
   );
 }
 
-function MobilePhoneScroll({ children }: { children: React.ReactNode }) {
+function MobilePhoneScroll({ children }: { children?: React.ReactNode }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const drag = React.useRef({ active: false, startY: 0, startScroll: 0 });
 
