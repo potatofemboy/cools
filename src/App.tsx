@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, ScatterChart, Scatter, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
 const DATA_URL = '/api/data';
-const DASHBOARD_TOKEN = '4XOonyKscjA_%_1%HCyB';
+const DASHBOARD_TOKEN = 'your-secret-token-here'; // must match DASHBOARD_TOKEN in Vercel env vars
 
 const BOT_INVITE_URL =
   'https://discord.com/oauth2/authorize?client_id=1473979364222701700&permissions=8&integration_type=0&scope=bot';
@@ -4698,7 +4698,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-    const iv = setInterval(fetchData, 60_000);
+    const iv = setInterval(fetchData, 1_000);
     return () => clearInterval(iv);
   }, [fetchData]);
 
