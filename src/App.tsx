@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, ScatterChart, Scatter, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
-const DATA_URL =
-  'https://api.github.com/repos/potatofemboy/discord-data/contents/data.json';
+const DATA_URL = '/api/data';
 
 const BOT_INVITE_URL =
   'https://discord.com/oauth2/authorize?client_id=1473979364222701700&permissions=8&integration_type=0&scope=bot';
@@ -2716,53 +2715,35 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
   const [showBackupCharts, setShowBackupCharts] = useState(false);
   const [errorSearch, setErrorSearch] = useState('');
   const [quickSearch, setQuickSearch] = useState('');
-  const [githubToken, setGithubToken] = useState<string>(() => { try { return localStorage.getItem('gh_pat') || ''; } catch { return ''; } });
-  const [githubTokenInput, setGithubTokenInput] = useState('');
   const [cancelStatus, setCancelStatus] = useState<Record<string, 'loading' | 'done' | 'error'>>({});
 
-  const COMMANDS_URL = 'https://api.github.com/repos/potatofemboy/discord-data/contents/commands.json';
-
-  const queueCommand = async (action: { action: string; [k: string]: any }): Promise<{ ok: boolean; error?: string }> => {
-    const token = githubToken;
-    if (!token) return { ok: false, error: 'No GitHub token set.' };
+  const sendCommand = async (action: string, payload: Record<string, any> = {}): Promise<{ ok: boolean; error?: string }> => {
     try {
-      let existing: { pending: any[] } = { pending: [] };
-      let sha: string | undefined;
-      const res = await fetch(COMMANDS_URL, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } });
-      if (res.ok) {
-        const meta = await res.json();
-        sha = meta.sha;
-        try { existing = JSON.parse(atob(meta.content.replace(/\n/g, ''))); } catch {}
-      } else if (res.status !== 404) {
-        return { ok: false, error: `GitHub fetch failed: ${res.status}` };
-      }
-      const newCmd = { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, ...action };
-      const updated = { pending: [...(existing.pending ?? []), newCmd] };
-      const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(updated, null, 2))));
-      const body: any = { message: `dashboard: queue ${action.action}`, content: newContent };
-      if (sha) body.sha = sha;
-      const putRes = await fetch(COMMANDS_URL, {
-        method: 'PUT',
-        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const res = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...payload }),
       });
-      if (!putRes.ok) { const e = await putRes.json(); return { ok: false, error: e.message ?? `PUT failed: ${putRes.status}` }; }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { ok: false, error: err.error ?? `HTTP ${res.status}` };
+      }
       return { ok: true };
     } catch (e: any) {
-      return { ok: false, error: e?.message ?? 'Unknown error' };
+      return { ok: false, error: e.message ?? 'Network error' };
     }
   };
 
   const cancelCode = async (userId: string) => {
     setCancelStatus(s => ({ ...s, [userId]: 'loading' }));
-    const result = await queueCommand({ action: 'cancel_code', user_id: userId });
+    const result = await sendCommand('cancel_code', { user_id: userId });
     setCancelStatus(s => ({ ...s, [userId]: result.ok ? 'done' : 'error' }));
     if (result.ok) { setTimeout(() => { onRefresh(); setCancelStatus(s => { const n = { ...s }; delete n[userId]; return n; }); }, 800); }
   };
 
   const cancelBypass = async () => {
     setCancelStatus(s => ({ ...s, __bypass__: 'loading' }));
-    const result = await queueCommand({ action: 'cancel_bypass' });
+    const result = await sendCommand('cancel_bypass');
     setCancelStatus(s => ({ ...s, __bypass__: result.ok ? 'done' : 'error' }));
     if (result.ok) { setTimeout(() => { onRefresh(); setCancelStatus(s => { const n = { ...s }; delete n.__bypass__; return n; }); }, 800); }
   };
@@ -4391,32 +4372,6 @@ function AdminPanel({ theme, darkMode, liveData, onRefresh, refreshing, lastSync
         </>}
 
         {view === 'codes' && linkedId === OWNER_ID_STR && <>
-          {/* GitHub token setup */}
-          {card(<>
-            <div style={{ fontWeight: 700, color: theme.text, fontSize: 13, marginBottom: 8 }}>🔑 GitHub Token <span style={{ fontSize: 11, fontWeight: 400, color: theme.muted, marginLeft: 6 }}>Required to cancel codes</span></div>
-            {githubToken
-              ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 12, color: '#57F287' }}>✅ Token saved</span>
-                  <code style={{ fontSize: 11, color: theme.muted, fontFamily: 'monospace' }}>ghp_{'•'.repeat(12)}</code>
-                  <button onClick={() => { setGithubToken(''); try { localStorage.removeItem('gh_pat'); } catch {} }} style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '1px solid #ED4245', background: 'transparent', color: '#ED4245', fontSize: 11, cursor: 'pointer' }}>Remove</button>
-                </div>
-              : <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="password"
-                    value={githubTokenInput}
-                    onChange={e => setGithubTokenInput(e.target.value)}
-                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                    style={{ flex: 1, padding: '7px 12px', borderRadius: 7, border: `1px solid ${theme.border2}`, background: 'var(--input-bg)', color: theme.text, fontSize: 12, fontFamily: 'monospace', outline: 'none' }}
-                  />
-                  <button
-                    onClick={() => { if (githubTokenInput.trim()) { const t = githubTokenInput.trim(); setGithubToken(t); try { localStorage.setItem('gh_pat', t); } catch {} setGithubTokenInput(''); } }}
-                    style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                  >Save</button>
-                </div>
-            }
-            <div style={{ fontSize: 11, color: theme.muted, marginTop: 8 }}>Stored only in your browser.</div>
-          </>)}
-
           {/* Active link codes */}
           {card((() => {
             const allCodes: Record<string, { code: string; expires: number }> = liveData?.dash_link_codes ?? {};
@@ -4667,23 +4622,13 @@ export default function App() {
 
   const fetchData = useMemo(() => async () => {
     try {
-      const res = await fetch(DATA_URL, {
-        headers: { 'Accept': 'application/vnd.github+json' },
-        cache: 'no-store',
-      });
-      if (res.status === 403 || res.status === 429) {
-        // Rate limited - keep existing data, just update the timestamp
-        setLastSynced(Date.now());
-        return;
-      }
+      const res = await fetch(DATA_URL, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const envelope = await res.json();
-      const decoded = atob(envelope.content.replace(/\n/g, ''));
-      const json = JSON.parse(decoded);
+      const json = await res.json();
       setLiveData(json);
       setLastSynced(Date.now());
     } catch {
-      // Network error etc - preserve existing data, don't wipe it
+      // preserve existing data on error
     }
   }, []);
 
