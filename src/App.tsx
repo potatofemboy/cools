@@ -2172,7 +2172,9 @@ function getDayGradient(
   return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
-function isBotOnline(heartbeat: Heartbeat, fetchedAt: number | null): boolean | null {
+function isBotOnline(heartbeat: Heartbeat, fetchedAt: number | null, fetchFailCount?: number): boolean | null {
+  // If fetches are failing (bot API server is down), mark offline immediately after 3 failures (~3s)
+  if (fetchFailCount !== undefined && fetchFailCount >= 3) return false;
   if (!heartbeat) return null;
   // Measure heartbeat age at the moment we fetched, not now;
   // otherwise a 60s fetch interval + 4min old heartbeat = false offline
@@ -4621,6 +4623,7 @@ export default function App() {
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const fetchFailCount = useRef(0);
   const fetchData = useMemo(() => async () => {
     try {
       const res = await fetch(DATA_URL, {
@@ -4629,10 +4632,11 @@ export default function App() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
+      fetchFailCount.current = 0;
       setLiveData(json);
       setLastSynced(Date.now());
     } catch {
-      // preserve existing data on error
+      fetchFailCount.current += 1;
     }
   }, []);
 
@@ -4719,7 +4723,7 @@ export default function App() {
 
   const downtimeLog: DowntimeEntry[] = liveData?.downtime_log ?? [];
   const online: boolean | null = liveData
-    ? isBotOnline(liveData.heartbeat, lastSynced)
+    ? isBotOnline(liveData.heartbeat, lastSynced, fetchFailCount.current)
     : null;
   const maintenance = liveData?.maintenance ?? false;
   const pingMs = liveData?.ping_ms ?? null;
