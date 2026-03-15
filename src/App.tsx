@@ -2172,11 +2172,9 @@ function getDayGradient(
   return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
-function isBotOnline(heartbeat: Heartbeat, fetchedAt: number | null, fetchFailCount?: number, pingNullStreak?: number): boolean | null {
+function isBotOnline(heartbeat: Heartbeat, fetchedAt: number | null, fetchFailCount?: number): boolean | null {
   // If fetches are failing (bot API server is down), mark offline immediately after 3 failures (~3s)
   if (fetchFailCount !== undefined && fetchFailCount >= 3) return false;
-  // If ping_ms has been missing for 3+ consecutive seconds, the bot is not responding
-  if (pingNullStreak !== undefined && pingNullStreak >= 3) return false;
   if (!heartbeat) return null;
   // Measure heartbeat age at the moment we fetched, not now;
   // otherwise a 60s fetch interval + 4min old heartbeat = false offline
@@ -4628,9 +4626,6 @@ export default function App() {
   const [statusTimedOut, setStatusTimedOut] = useState(false);
 
   const fetchFailCount = useRef(0);
-  // Counts consecutive fetches where ping_ms was absent/null.
-  // If this reaches 3 (≈3 seconds) the bot is treated as offline.
-  const pingNullStreak = useRef(0);
   const fetchData = useMemo(() => async () => {
     try {
       const res = await fetch(DATA_URL, {
@@ -4640,17 +4635,10 @@ export default function App() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       fetchFailCount.current = 0;
-      // Track whether the bot is sending a live ping value
-      if (json?.ping_ms != null) {
-        pingNullStreak.current = 0;
-      } else {
-        pingNullStreak.current += 1;
-      }
       setLiveData(json);
       setLastSynced(Date.now());
     } catch {
       fetchFailCount.current += 1;
-      pingNullStreak.current += 1;
     }
   }, []);
 
@@ -4744,7 +4732,7 @@ export default function App() {
 
   const downtimeLog: DowntimeEntry[] = liveData?.downtime_log ?? [];
   const _rawOnline: boolean | null = liveData
-    ? isBotOnline(liveData.heartbeat, lastSynced, fetchFailCount.current, pingNullStreak.current)
+    ? isBotOnline(liveData.heartbeat, lastSynced, fetchFailCount.current)
     : null;
   // After 3 seconds with no data, stop showing "Checking..." and show Offline instead
   const online: boolean | null = _rawOnline === null && statusTimedOut ? false : _rawOnline;
