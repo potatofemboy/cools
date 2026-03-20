@@ -4626,6 +4626,7 @@ export default function App() {
   const [statusTimedOut, setStatusTimedOut] = useState(false);
 
   const fetchFailCount = useRef(0);
+  const [apiReachable, setApiReachable] = useState<boolean | null>(null);
   const fetchData = useMemo(() => async () => {
     try {
       const res = await fetch(DATA_URL, {
@@ -4635,10 +4636,12 @@ export default function App() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       fetchFailCount.current = 0;
+      setApiReachable(true);
       setLiveData(json);
       setLastSynced(Date.now());
     } catch {
       fetchFailCount.current += 1;
+      if (fetchFailCount.current >= 3) setApiReachable(false);
     }
   }, []);
 
@@ -4919,21 +4922,24 @@ export default function App() {
     );
   }, []);
 
-  const statusServices = useMemo(
-    () => [
+  const statusServices = useMemo(() => {
+    // API is down if: bot is offline, OR bot is online but website gets no pings (apiReachable false)
+    const apiStatus = online === false ? false : apiReachable;
+    return [
       {
         name: 'Main Bot',
-        status:
-          online === null ? 'Checking...' : online ? 'Operational' : 'Offline',
+        status: online === null ? 'Checking...' : online ? 'Operational' : 'Offline',
         color: online === null ? '#72767d' : online ? 'var(--green)' : '#ED4245',
         ping: pingMs !== null ? `${pingMs}ms` : null,
       },
-      { name: 'Helper Bots', status: 'Operational', color: 'var(--green)', ping: null },
-      { name: 'Backup Storage', status: 'Operational', color: 'var(--green)', ping: null },
-      { name: 'Uptime Monitor', status: 'Operational', color: 'var(--green)', ping: null },
-    ],
-    [online, pingMs]
-  );
+      {
+        name: 'API',
+        status: apiStatus === null ? 'Checking...' : apiStatus ? 'Operational' : 'Offline',
+        color: apiStatus === null ? '#72767d' : apiStatus ? 'var(--green)' : '#ED4245',
+        ping: null,
+      },
+    ];
+  }, [online, pingMs, apiReachable]);
 
   const pageContent = (
     <div
@@ -5913,7 +5919,7 @@ export default function App() {
             {/* Services as accordions */}
             {statusServices.map((s, si) => {
               const isOpen = openService === si;
-              const isMainBot = si === 0 || si === 1; // Main Bot + Helper Bots share the same script
+              const isMainBot = si === 0; // Only Main Bot has a downtime log
               const log = isMainBot ? downtimeLog : [];
               const pct24  = isMainBot ? calcUptimePct(log, 1)            : 100;
               const pct7   = isMainBot ? calcUptimePct(log, 7)            : 100;
@@ -5941,7 +5947,7 @@ export default function App() {
                   </div>
                   {/* Expanded uptime */}
                   <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 0.25s ease' }}>
-                    <div style={{ overflow: 'hidden' }}>
+                    <div style={{ overflow: isOpen ? 'visible' : 'hidden' }}>
                     <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--border)' }}>
                       {/* Pct cards */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, paddingTop: 14, marginBottom: 14 }}>
